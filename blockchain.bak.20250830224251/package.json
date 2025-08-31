@@ -1,0 +1,13 @@
+{
+  "name": "herb-traceability-blockchain",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "deploy": "bash scripts/deploy.sh",
+    "build:abi": "node scripts/export-abi.js"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "hardhat": "^2.22.5"
+  }
+}

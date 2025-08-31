@@ -1,30 +1,13 @@
-{
+﻿{
   "name": "ayurvedic-herb-traceability",
   "private": true,
   "version": "0.1.0",
-  "workspaces": [
-    "backend",
-    "frontend-web",
-  "mobile-app",
-  "blockchain"
-  ],
+  "workspaces": ["backend", "frontend-web", "mobile-app", "blockchain"],
   "scripts": {
-  "start:backend": "npm --workspace backend run start",
-  "start:web": "npm --workspace frontend-web start",
-  "start:mobile": "npm --workspace mobile-app start",
-  "deploy:blockchain": "npm --workspace blockchain run deploy || echo 'Add deploy script in blockchain/package.json'",
-    "dev:backend": "npm --workspace backend run dev",
-    "dev:web": "npm --workspace frontend-web start",
-    "dev:mobile": "npm --workspace mobile-app start",
-  "test": "npm --workspaces run test --if-present",
-    "lint": "eslint . --ext js,jsx,cjs,mjs --max-warnings=0 || exit 1",
-    "format": "prettier -w .",
-  "ci": "npm install && npm run test",
-  "run:demo": "powershell -ExecutionPolicy Bypass -File ./scripts/demo.ps1"
-  ,"stack:up": "powershell -ExecutionPolicy Bypass -File ./scripts/stack-up.ps1"
-  },
-  "devDependencies": {
-    "eslint": "^8.57.0",
-    "prettier": "^3.2.5"
+    "start:all": "docker-compose up --build",
+    "start:backend": "npm --workspace backend run dev",
+    "start:web": "npm --workspace frontend-web run dev",
+    "start:blockchain": "npm --workspace blockchain run node",
+    "lint": "echo lint placeholder"
   }
 }

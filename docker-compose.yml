@@ -1,33 +1,63 @@
-version: "3.9"
-services:
+﻿services:
   mongo:
     image: mongo:6
     container_name: mongo
     ports:
       - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
     healthcheck:
-      test: ["CMD","mongosh","--quiet","--eval","db.runCommand({ ping: 1 }).ok"]
+      test: ["CMD", "mongosh", "localhost:27017/herbs", "--quiet", "--eval", "db.runCommand({ ping: 1 }).ok"]
       interval: 10s
       timeout: 5s
       retries: 5
 
+  blockchain:
+    image: trufflesuite/ganache-cli:latest
+    container_name: blockchain
+    command: [
+      "node", "/app/ganache-core.docker.cli.js",
+      "-h", "0.0.0.0",
+      "-p", "8545",
+      "-m", "candy maple cake sugar pudding cream honey rich smooth crumble sweet treat"
+    ]
+    ports:
+      - "8545:8545"
+
   backend:
     build:
-      context: .
-      dockerfile: backend/Dockerfile
+      context: ./backend
+      dockerfile: Dockerfile
     container_name: backend
     env_file:
-      - backend/.env
+      - ./backend/.env
     environment:
-      MONGODB_URI: mongodb://mongo:27017/herbs
-      PORT: 4000
-      NODE_ENV: production
+      - MONGODB_URI=${MONGODB_URI:-mongodb://mongo:27017/herbs}
+      - PORT=4000
     depends_on:
       - mongo
+      - blockchain
     ports:
       - "4000:4000"
+    volumes:
+      - ./backend:/usr/src/app
     healthcheck:
-      test: ["CMD","wget","-q","-O","-","http://localhost:4000/healthz"]
+      test: ["CMD-SHELL", "curl -f http://localhost:4000/healthz || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 12
+
+  frontend:
+    build:
+      context: ./frontend-web
+      dockerfile: Dockerfile
+    container_name: frontend
+    environment:
+      - VITE_API_URL=http://backend:4000
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+volumes:
+  mongo_data:

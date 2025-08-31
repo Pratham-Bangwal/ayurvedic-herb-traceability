@@ -1,16 +1,7 @@
-# Root ignores
-node_modules/
+﻿node_modules/
 .env
+/dist
+/build
+uploads/
 .DS_Store
-dist/
-build/
-coverage/
-*.log
-npm-debug.log*
-yarn-error.log
-.tmp/
-.eslintcache
- # mono repo tool caches
-.pnp.cjs
-.pnp.loader.mjs
-backend/src/abi/
+.vscode/

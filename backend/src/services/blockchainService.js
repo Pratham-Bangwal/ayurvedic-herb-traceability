@@ -1,57 +1,54 @@
-// Blockchain interaction service with graceful fallback.
-const { ethers } = require('ethers');
+﻿const { JsonRpcProvider, Wallet, Contract } = require("ethers");
 
-const REG_ABI = [
-  'function registerBatch(string batchId, bytes32 metadataHash, uint256 harvestedAt) external',
-  'function transferOwnership(string batchId, address newOwner) external',
-  'function getBatch(string batchId) external view returns (tuple(string batchId, bytes32 metadataHash, address farmer, uint256 harvestedAt, address currentOwner))'
+// Minimal ABI subset
+const ABI = [
+  "function createBatch(string batchId, address owner, string metadataURI)",
+  "function addEvent(string batchId, string actor, string data)",
+  "event BatchCreated(string batchId, address owner, string metadataURI)",
+  "event BatchUpdated(string batchId, string actor, string data)"
 ];
 
-function getContract() {
-  const addr = process.env.HERB_REGISTRY_ADDRESS;
-  const rpc = process.env.BLOCKCHAIN_RPC_URL;
-  const pk = process.env.DEPLOYER_PRIVATE_KEY;
-  if (!addr || !rpc || !pk) return null; // fallback to placeholder
-  const provider = new ethers.JsonRpcProvider(rpc);
-  const wallet = new ethers.Wallet(pk, provider);
-  return new ethers.Contract(addr, REG_ABI, wallet);
-}
+let provider, contract;
 
-async function recordHerbOnChain(herb) {
+function init() {
+  const rpc = process.env.BLOCKCHAIN_RPC || "http://blockchain:8545";
+  const address = process.env.HERB_REGISTRY_ADDRESS || "";
+
   try {
-    const c = getContract();
-    if (!c) return { txHash: '0xplaceholder', batchId: herb.batchId };
-    const harvestedAt = Math.floor(new Date(herb.harvestedAt || Date.now()).getTime() / 1000);
-    const metaHash = ethers.keccak256(ethers.toUtf8Bytes(herb.batchId)); // placeholder metadata hash
-    const tx = await c.registerBatch(herb.batchId, metaHash, harvestedAt);
-    const receipt = await tx.wait();
-    return { txHash: receipt.transactionHash, batchId: herb.batchId, registryAddress: c.target }; 
-  } catch (e) {
-    return { error: e.message, txHash: '0xerror', batchId: herb.batchId };
+    provider = new JsonRpcProvider(rpc);
+
+    // Use a Ganache private key or .env variable
+    const privateKey =
+      process.env.PRIVATE_KEY ||
+      "0x90f3c60e6919fb8e083a933bd2bc7d10ec863987a415e471b412907a292750e3"; // Ganache default[0]
+
+    const wallet = new Wallet(privateKey, provider);
+
+    if (address) {
+      contract = new Contract(address, ABI, wallet);
+      console.log("✅ Blockchain service connected:", address);
+    } else {
+      console.warn("⚠️ HERB_REGISTRY_ADDRESS not set, blockchain calls will be mocked");
+      contract = null;
+    }
+  } catch (err) {
+    console.error("Blockchain init error:", err);
+    contract = null;
   }
 }
 
-async function transferOwnership(batchId, newOwner) {
-  try {
-    const c = getContract();
-    if (!c) return { txHash: '0xplaceholder', batchId, newOwner };
-    const tx = await c.transferOwnership(batchId, newOwner);
-    const receipt = await tx.wait();
-    return { txHash: receipt.transactionHash, batchId, newOwner };
-  } catch (e) {
-    return { error: e.message, txHash: '0xerror', batchId, newOwner };
-  }
+async function createBatchOnChain(batchId, ownerAddr, metadataURI) {
+  if (!contract) return { mock: true, batchId };
+  const tx = await contract.createBatch(batchId, ownerAddr, metadataURI);
+  await tx.wait();
+  return tx;
 }
 
-async function getOnChainBatch(batchId) {
-  try {
-    const c = getContract();
-    if (!c) return { batchId, currentOwner: '0xOwner', simulated: true };
-    const b = await c.getBatch(batchId);
-    return { batchId: b.batchId, metadataHash: b.metadataHash, farmer: b.farmer, harvestedAt: Number(b.harvestedAt) * 1000, currentOwner: b.currentOwner, registryAddress: c.target };
-  } catch (e) {
-    return { error: e.message, batchId };
-  }
+async function addEventOnChain(batchId, actor, data) {
+  if (!contract) return { mock: true, batchId, actor, data };
+  const tx = await contract.addEvent(batchId, actor, data);
+  await tx.wait();
+  return tx;
 }
 
-module.exports = { recordHerbOnChain, transferOwnership, getOnChainBatch };
+module.exports = { init, createBatchOnChain, addEventOnChain };

@@ -1,6 +1,9 @@
-// Placeholder Hardhat config
-require('@nomicfoundation/hardhat-toolbox');
-
+﻿require("@nomiclabs/hardhat-ethers");
 module.exports = {
-  solidity: '0.8.20'
+  solidity: "0.8.18",
+  networks: {
+    hardhat: {
+      chainId: 1337
+    }
+  }
 };
