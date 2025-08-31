@@ -1,7 +1,33 @@
-﻿node_modules/
+﻿# Node.js
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Build outputs
+build/
+dist/
+coverage/
+.next/
+out/
+
+# Environment files
 .env
-/dist
-/build
-uploads/
+.env.local
+.env.production
+.env.development
+
+# Logs
+logs/
+*.log
+
+# Docker
+*.pid
+*.seed
+*.pid.lock
+
+# OS
 .DS_Store
-.vscode/
+Thumbs.db
+
+# Uploads
+uploads/
