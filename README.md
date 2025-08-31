@@ -1,159 +1,233 @@
-# Ayurvedic Herb Blockchain Traceability System
+# 🌿 Ayurvedic Herb Traceability System
 
-Prototype monorepo for end‑to‑end supply chain traceability of Ayurvedic herbs.
+Blockchain + AI assisted supply chain transparency for Ayurvedic herbs (Farm → Processor → Manufacturer → Consumer).
 
-## ⚡ Super Simple How To Use (Fast Demo)
-Pick ONE option below.
-
-### Option 1: Easiest (Docker – one command)
-1. Install Docker Desktop (https://www.docker.com/products/docker-desktop) and start it.
-2. From the project root run (auto waits for health):
-	```powershell
-	npm run stack:up
-	```
-	(This wraps `docker compose up --build -d` and polls health.)
-3. Verify:
-	```powershell
-	curl http://localhost:4000/healthz
-	```
-	Expected: `{ "status": "ok", ... }`
-4. Try creating a batch:
-	```powershell
-	curl -Method POST -Uri http://localhost:4000/api/herbs -Body '{"name":"Tulsi","batchId":"B1","origin":"FarmA"}' -ContentType 'application/json'
-	```
-5. Trace it:
-	```powershell
-	curl http://localhost:4000/api/herbs/B1/trace
-	```
-6. Stop everything when done:
-	```powershell
-	docker compose down
-	```
-Optional: view running containers:
-```powershell
-docker ps
-```
-
-### Option 2: Manual (no Docker)
-1. Install Node.js (LTS) + have MongoDB running locally (or use MongoDB Atlas URI).
-2. Copy `.env.example` to `backend/.env` and adjust `MONGO_URI` (example already works if you use Docker for Mongo later).
-3. Install all dependencies (from repo root):
-	```powershell
-	npm install
-	```
-4. Start only the backend:
-	```powershell
-	npm run dev:backend
-	```
-5. (Later you can start the web UI) `npm run dev:web` (if script present) – but for now you can test with curl / Postman.
-
-### Fast Automated Demo (creates + traces a batch automatically)
-Run:
-```powershell
-npm run run:demo
-```
-Follow on-screen steps; press Enter to stop when finished.
-
-### Quick API Flow (copy & paste examples)
-Open a NEW PowerShell window (backend must already be running on port 4000).
-
-1. Create a herb batch (no image):
-	```powershell
-	curl -Method POST -Uri http://localhost:4000/api/herbs -Body '{"name":"Tulsi","batchId":"BATCH100","origin":"Kerala"}' -ContentType 'application/json'
-	```
-2. List all batches:
-	```powershell
-	curl http://localhost:4000/api/herbs
-	```
-3. Add a processing event (drying example):
-	```powershell
-	curl -Method POST -Uri http://localhost:4000/api/herbs/BATCH100/process -Body '{"type":"drying","location":"Warehouse 1","notes":"Low heat"}' -ContentType 'application/json'
-	```
-4. Transfer ownership:
-	```powershell
-	curl -Method POST -Uri http://localhost:4000/api/herbs/BATCH100/transfer -Body '{"newOwner":"ManufacturerCo"}' -ContentType 'application/json'
-	```
-5. Get full trace:
-	```powershell
-	curl http://localhost:4000/api/herbs/BATCH100/trace
-	```
-6. Get QR code (PNG image): open in browser:
-	http://localhost:4000/api/herbs/BATCH100/qrcode
-
-### Upload With Image (PowerShell example)
-Have an image named `leaf.jpg` in the current folder.
-```powershell
-curl -Method POST -Uri http://localhost:4000/api/herbs/upload `
-  -Form name=Ashwagandha `
-  -Form batchId=BATCH200 `
-  -Form origin=Rajasthan `
-  -Form harvestedAt=2024-12-01 `
-  -Form photo=@"$(Resolve-Path ./leaf.jpg)"
-```
-
-Then trace it:
-```powershell
-curl http://localhost:4000/api/herbs/BATCH200/trace
-```
-
-### Public Consumer Trace Page (Web)
-After you later start the web frontend, open:
-```
-http://localhost:5173/trace/BATCH100
-```
-
-### If Something Fails
-- Check backend logs in the terminal.
-- Make sure port 4000 not used by something else.
-- If Mongo connection fails in manual mode: verify `MONGO_URI` in `backend/.env`.
+> Goal: Prove authenticity, origin, and handling of herbal batches; fight counterfeits; empower farmers; build consumer trust.
 
 ---
 
-## Structure
-- **blockchain/** → Smart contracts + deployment scripts
-- **backend/** → Node.js + Express API + blockchain connector
-- **frontend-web/** → React dashboard for manufacturers
-- **mobile-app/** → React Native app for farmers + consumers
-- **docs/** → Architecture + API specs
+## ✨ Core Demo Modules
+| Actor | Actions | Visible Proof |
+|-------|---------|---------------|
+| Farmer / Collector | Register batch, geo‑tag, upload photo | Batch created, QR generated |
+| Processor / Manufacturer | Scan QR, add processing events, transfer ownership | Updated trace chain |
+| Consumer | Scan QR on product | Full immutable trace view |
+| System (AI + Chain) | Image validation stub, blockchain record stubs | Confidence score + tx metadata (planned) |
 
-## Quick Start
-# Docker (Backend + Mongo + Hardhat Node)
-```bash
-docker compose up --build
+---
+
+## 🧱 Architecture Overview
+- **frontend-web/**: React (Vite) dashboard (batch creation, events, ownership transfer, map, QR, trace viewer, public trace page).
+- **mobile-app/**: React Native prototype (farmer upload & consumer scan screens – QR camera pending).
+- **backend/**: Node.js + Express API, MongoDB persistence, QR generation, AI validation stub, IPFS hashing stub, blockchain service (ethers fallback).
+- **blockchain/**: Solidity contract scaffold + deploy & ABI export scripts (Hardhat style; real logic TBD).
+- **docs/**: Architecture, API spec, demo flow.
+- **docker-compose.yml**: Mongo + backend (extendable to add blockchain node & frontend).
+
+Off‑chain rich data (photo, geo, events) + on‑chain minimal proofs (planned) + QR bridge to consumer.
+
+---
+
+## 🗂 Data Model (Herb Batch)
 ```
-Backend: http://localhost:4000
+batchId, name, origin
+geoLocation { lat, lng }
+photoCid, metadataCid
+processingEvents[] (step, description, timestamp)
+ownershipTransfers[] (from, to, timestamp)
+aiValidation { label, confidence, validatedAt }
+blockchain { txHash?, status?, blockNumber? }
+timestamps
+```
 
-```bash
-# Install all workspace dependencies
+---
+
+## 🚀 Quick Start (Local Docker – Recommended)
+```powershell
+# In project root
+docker compose up -d --build
+# Check API health
+curl http://localhost:4000/healthz
+```
+
+Create a sample batch:
+```powershell
+curl -Method POST -Uri http://localhost:4000/api/herbs `
+  -Body '{"name":"Tulsi","batchId":"B1","origin":"FarmA"}' `
+  -ContentType 'application/json'
+```
+
+View trace:
+```powershell
+curl http://localhost:4000/api/herbs/B1/trace
+```
+
+QR (browser):
+```
+http://localhost:4000/api/herbs/B1/qrcode
+```
+
+Stop:
+```powershell
+docker compose down
+```
+
+---
+
+## 🔧 Manual Dev (Without Docker)
+```powershell
+# Start Mongo (if not installed)
+docker run -d --name mongo -p 27017:27017 mongo:6
+
+# Backend
+cd backend
 npm install
+$env:MONGODB_URI="mongodb://localhost:27017/herbs"
+npm start
 
-# Start backend (production mode)
-npm run start:backend
-
-# Or run backend in dev mode with auto-reload
-npm run dev:backend
-
-# Start web frontend (placeholder tooling)
+# Web (in another terminal, project root)
+npm install
 npm run start:web
-
-# Start mobile app (placeholder tooling / future Expo)
-npm run start:mobile
+# Open http://localhost:5173
 ```
 
-## Notes
-- Web & mobile scripts are placeholders; replace with Vite / Expo later.
-- See `docs/setup-guide.md` for extended environment setup & next steps.
+---
 
-## Roadmap (Initial)
-1. MongoDB integration & env configuration
-2. Solidity smart contract (batch registry) + Hardhat setup
-3. Vite React UI with basic pages & API integration
-4. Expo React Native app with QR code generation & scanning
-5. On-chain event listener to sync chain state to MongoDB
+## 📡 Key API Endpoints (Current)
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| GET | /healthz | Service + DB status |
+| POST | /api/herbs | Create batch (JSON) |
+| POST | /api/herbs/upload | Create batch (multipart: photo, geo) |
+| POST | /api/herbs/:batchId/process | Add processing event |
+| POST | /api/herbs/:batchId/transfer | Ownership transfer |
+| GET | /api/herbs/:batchId/trace | Full trace |
+| GET | /api/trace/:batchId | Public trace alias |
+| GET | /api/herbs/:batchId/qrcode | SVG QR code |
+| POST | /api/herbs/validate/image | AI image validation (stub) |
 
-## Dev Utilities
-- Seed sample data: `npm --workspace backend run seed`
-- CI workflow: `.github/workflows/ci.yml` runs tests on push/PR to main.
+---
 
-## License
-TBD
+## 🖥 Web Dashboard Features
+- Create batch (with optional lat/lng + image).
+- List & select batches; display:
+  - Processing timeline
+  - Ownership chain
+  - Map (Leaflet) of origin
+  - QR code (server‑generated)
+- Actions: add processing event, transfer ownership.
+- Public trace page (shareable link with batchId).
+
+---
+
+## 📱 Mobile Prototype
+- FarmerUpload: Form structure (needs full integration).
+- ConsumerScan: Enter/scan batchId (camera/QR scanning to add).
+- Next: Integrate Expo + barcode scanner, offline queue, improved UI.
+
+---
+
+## ⛓ Blockchain Layer (Planned Enhancements)
+Current: Basic Solidity contract & deploy script scaffold; backend has ethers integration stubs (no enforced on‑chain persistence yet).
+Planned:
+1. Finalize HerbRegistry (create → process → transfer).
+2. Persist txHash + blockNumber on batch actions.
+3. Optional migration to Hyperledger Fabric (private permissioned alternative).
+
+---
+
+## 🧪 Testing
+Backend tests (Jest/Supertest + mongodb-memory-server) cover health, basic CRUD, processing, transfer, validation (partial).
+Run (from root or backend space):
+```powershell
+npm --workspace backend test
+```
+
+---
+
+## 🧰 Utility Scripts
+| Script | Purpose |
+|--------|---------|
+| run:demo | Automated local demo flow (may require adjustments) |
+| stack:up | PowerShell orchestration (older version) |
+| backend seed | Sample data |
+| blockchain deploy | Simulated deploy + address file |
+| blockchain build:abi | Export contract ABI for backend |
+
+---
+
+## 🔐 Security / Gaps
+Missing (by design for prototype):
+- Auth / RBAC (farmer vs processor vs consumer).
+- Input schema validation (Joi/Zod).
+- Production-grade error handling.
+- Real AI model & real IPFS pinning.
+Add these before production.
+
+---
+
+## 🧭 Roadmap (Suggested)
+1. Harden Docker (add frontend + hardhat node, volumes, healthchecks).
+2. Real contract interactions (record events + store txHash).
+3. Actual IPFS pin (Pinata / web3.storage).
+4. AI classifier MVP (TensorFlow.js or Python microservice).
+5. AuthN/Z (JWT; roles).
+6. Mobile camera + QR scanning (Expo).
+7. Validation (Zod) + better test coverage.
+8. Metrics & structured logging (pino + Prometheus).
+9. Fabric feasibility (if required for enterprise compliance).
+
+---
+
+## ⚙️ Environment Variables (backend/.env)
+```
+MONGODB_URI=mongodb://mongo:27017/herbs
+PORT=4000
+BLOCKCHAIN_RPC_URL=<optional>
+HERB_REGISTRY_ADDRESS=<after deploy>
+IPFS_API_URL=<ipfs endpoint optional>
+PUBLIC_BASE_URL=http://localhost:4000
+```
+
+---
+
+## 🧩 Tech Stack
+- Backend: Node.js, Express, MongoDB, Multer, Ethers.js (stub), QRCode, IPFS stub.
+- Frontend: React (Vite), Leaflet.
+- Mobile: React Native scaffold.
+- Blockchain: Solidity + (planned Hardhat).
+- DevOps: Docker, GitHub Actions (lint/test/build), ESLint + Prettier.
+
+---
+
+## 🩺 Troubleshooting
+| Issue | Fix |
+|-------|-----|
+| Backend not reachable | Check `docker compose ps`; view `docker logs backend` |
+| Mongo connect errors | Verify MONGODB_URI, container name |
+| Module not found in container | Rebuild with `--no-cache`; ensure package.json copied first |
+| QR blank | Confirm batchId exists; trace endpoint returns data |
+| AI validation always low | Stub – replace with real model |
+
+---
+
+## 🤝 Contribution
+1. Fork + branch (feat/xyz).
+2. Add/adjust tests.
+3. PR with concise description.
+4. Ensure lint passes (`npm run lint`).
+
+---
+
+## 📜 License
+MIT – free for use and modification.
+
+---
+
+## 🗣 Pitch (Short)
+Authenticity engine for Ayurvedic herbs: verifiable origin, tamper‑evident chain, AI-assisted validation, consumer trust via instant QR trace.
+
+---
+
+## 🙋 Support
+Open an issue or describe the failing command + logs snippet.
