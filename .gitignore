@@ -31,3 +31,10 @@ Thumbs.db
 
 # Uploads
 uploads/
+backend/.env
+frontend-web/.env
+mobile-app/.env
+frontend-web/dist
+backend/node_modules
+frontend-web/node_modules
+blockchain/node_modules
