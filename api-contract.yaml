@@ -1,0 +1,249 @@
+openapi: 3.1.0
+info:
+  title: Ayurvedic Herb Traceability API
+  version: 1.0.0
+  description: REST API for managing, tracing, and verifying Ayurvedic herb batches.
+
+servers:
+  - url: http://localhost:4000/api
+
+paths:
+  /herbs:
+    get:
+      summary: List all herbs
+      responses:
+        "200":
+          description: Array of all herb batches
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Herb"
+    post:
+      summary: Create herb batch (JSON only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HerbCreate"
+      responses:
+        "201":
+          description: Herb created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Herb"
+
+  /herbs/upload:
+    post:
+      summary: Create herb batch with media (multipart)
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                batchId: { type: string }
+                lat: { type: number, format: float }
+                lng: { type: number, format: float }
+                harvestedAt: { type: string, format: date-time }
+                photo:
+                  type: string
+                  format: binary
+      responses:
+        "201":
+          description: Herb created with optional IPFS + AI validation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Herb"
+
+  /herbs/validate-image:
+    post:
+      summary: Validate herb image with AI
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                batchId: { type: string }
+                photo:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: Validation result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AIValidation"
+        "400":
+          description: Missing or invalid photo
+
+  /herbs/{batchId}/process:
+    post:
+      summary: Add processing event
+      parameters:
+        - name: batchId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProcessEventInput"
+      responses:
+        "200":
+          description: Updated herb with events
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Herb"
+
+  /herbs/{batchId}/trace:
+    get:
+      summary: Get full public trace of a herb batch
+      parameters:
+        - name: batchId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Trace info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Trace"
+
+  /herbs/{batchId}/qrcode:
+    get:
+      summary: Generate QR code (SVG) for trace URL
+      parameters:
+        - name: batchId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: QR code SVG
+          content:
+            image/svg+xml: {}
+
+  /herbs/{batchId}/transfer:
+    post:
+      summary: Transfer ownership of herb batch
+      parameters:
+        - name: batchId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ newOwner ]
+              properties:
+                newOwner: { type: string, description: Blockchain address }
+      responses:
+        "200":
+          description: Ownership transferred
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Herb"
+
+components:
+  schemas:
+    Herb:
+      type: object
+      properties:
+        batchId: { type: string }
+        name: { type: string }
+        farmerName: { type: string }
+        geo:
+          type: object
+          properties:
+            type: { type: string, enum: [Point] }
+            coordinates:
+              type: array
+              items: { type: number }
+              minItems: 2
+              maxItems: 2
+        metadataURI: { type: string }
+        ipfsHash: { type: string }
+        photoIpfsCid: { type: string }
+        processingEvents:
+          type: array
+          items: { $ref: "#/components/schemas/ProcessEvent" }
+        ownershipTransfers:
+          type: array
+          items: { $ref: "#/components/schemas/OwnershipTransfer" }
+        aiValidation: { $ref: "#/components/schemas/AIValidation" }
+        chain: { type: object }
+        createdAt: { type: string, format: date-time }
+
+    HerbCreate:
+      type: object
+      required: [ name, batchId ]
+      properties:
+        name: { type: string }
+        batchId: { type: string }
+        farmerName: { type: string }
+        harvestedAt: { type: string, format: date-time }
+
+    ProcessEvent:
+      type: object
+      properties:
+        actor: { type: string }
+        data: { type: string }
+        timestamp: { type: string, format: date-time }
+
+    ProcessEventInput:
+      type: object
+      required: [ actor, data ]
+      properties:
+        actor: { type: string }
+        data: { type: string }
+
+    OwnershipTransfer:
+      type: object
+      properties:
+        to: { type: string }
+        timestamp: { type: string, format: date-time }
+
+    AIValidation:
+      type: object
+      properties:
+        predictedName: { type: string }
+        confidence: { type: number }
+        model: { type: string }
+        validatedAt: { type: string, format: date-time }
+
+    Trace:
+      type: object
+      properties:
+        batchId: { type: string }
+        farmerName: { type: string }
+        createdAt: { type: string, format: date-time }
+        geo: { $ref: "#/components/schemas/Herb/properties/geo" }
+        processingEvents:
+          type: array
+          items: { $ref: "#/components/schemas/ProcessEvent" }
+        ownershipTransfers:
+          type: array
+          items: { $ref: "#/components/schemas/OwnershipTransfer" }
+        photoIpfsCid: { type: string }
+        chain: { type: object }
+        traceUrl: { type: string }
+        qr: { type: string }
