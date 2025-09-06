@@ -1,0 +1,31 @@
+# Node modules and lock files
+node_modules
+npm-debug.log
+yarn.lock
+package-lock.json
+pnpm-lock.yaml
+
+# Build outputs
+build
+dist
+coverage
+.next
+out
+
+# Environment files
+.env
+.env.local
+.env.development
+.env.production
+
+# Logs
+logs
+*.log
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Temporary/cache
+.cache
+.tmp

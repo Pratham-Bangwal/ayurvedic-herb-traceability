@@ -1,54 +1,72 @@
-﻿const { JsonRpcProvider, Wallet, Contract } = require("ethers");
+﻿const { ethers } = require('ethers');
+const fs = require('fs');
+const path = require('path');
 
-// Minimal ABI subset
-const ABI = [
-  "function createBatch(string batchId, address owner, string metadataURI)",
-  "function addEvent(string batchId, string actor, string data)",
-  "event BatchCreated(string batchId, address owner, string metadataURI)",
-  "event BatchUpdated(string batchId, string actor, string data)"
-];
+// Load full ABI from compiled contract
+const abiPath = path.join(__dirname, '../../abi/HerbRegistry.json');
+const abi = JSON.parse(fs.readFileSync(abiPath, 'utf8')).abi;
 
 let provider, contract;
 
 function init() {
-  const rpc = process.env.BLOCKCHAIN_RPC || "http://blockchain:8545";
-  const address = process.env.HERB_REGISTRY_ADDRESS || "";
+  const rpc = process.env.BLOCKCHAIN_RPC || 'http://127.0.0.1:8545';
+  const address = process.env.HERB_REGISTRY_ADDRESS;
+  const privateKey = process.env.PRIVATE_KEY;
 
-  try {
-    provider = new JsonRpcProvider(rpc);
-
-    // Use a Ganache private key or .env variable
-    const privateKey =
-      process.env.PRIVATE_KEY ||
-      "0x90f3c60e6919fb8e083a933bd2bc7d10ec863987a415e471b412907a292750e3"; // Ganache default[0]
-
-    const wallet = new Wallet(privateKey, provider);
-
-    if (address) {
-      contract = new Contract(address, ABI, wallet);
-      console.log("✅ Blockchain service connected:", address);
-    } else {
-      console.warn("⚠️ HERB_REGISTRY_ADDRESS not set, blockchain calls will be mocked");
-      contract = null;
-    }
-  } catch (err) {
-    console.error("Blockchain init error:", err);
-    contract = null;
+  if (!address || !privateKey) {
+    console.warn('⚠️ Missing HERB_REGISTRY_ADDRESS or PRIVATE_KEY in .env');
+    return;
   }
+
+  provider = new ethers.JsonRpcProvider(rpc);
+  const wallet = new ethers.Wallet(privateKey, provider);
+  contract = new ethers.Contract(address, abi, wallet);
+
+  console.log('✅ Blockchain service connected:', address);
 }
 
-async function createBatchOnChain(batchId, ownerAddr, metadataURI) {
-  if (!contract) return { mock: true, batchId };
-  const tx = await contract.createBatch(batchId, ownerAddr, metadataURI);
-  await tx.wait();
-  return tx;
+async function createBatch(batchId, owner, metadataURI) {
+  if (!contract) throw new Error('Contract not initialized');
+  const tx = await contract.createBatch(batchId, metadataURI);
+  const receipt = await tx.wait();
+  return { txHash: receipt.hash, blockNumber: receipt.blockNumber };
 }
 
-async function addEventOnChain(batchId, actor, data) {
-  if (!contract) return { mock: true, batchId, actor, data };
+async function addEvent(batchId, actor, data) {
+  if (!contract) throw new Error('Contract not initialized');
   const tx = await contract.addEvent(batchId, actor, data);
-  await tx.wait();
-  return tx;
+  const receipt = await tx.wait();
+  return { txHash: receipt.hash, blockNumber: receipt.blockNumber };
 }
 
-module.exports = { init, createBatchOnChain, addEventOnChain };
+async function transferOwnership(batchId, newOwner) {
+  if (!contract) throw new Error('Contract not initialized');
+  const tx = await contract.transferOwnership(batchId, newOwner);
+  const receipt = await tx.wait();
+  return { txHash: receipt.hash, blockNumber: receipt.blockNumber };
+}
+
+async function getBatchOwner(batchId) {
+  if (!contract) throw new Error('Contract not initialized');
+  return await contract.getBatchOwner(batchId);
+}
+
+async function getBatchMetadata(batchId) {
+  if (!contract) throw new Error('Contract not initialized');
+  return await contract.getBatchMetadata(batchId);
+}
+
+async function getBatchEvents(batchId) {
+  if (!contract) throw new Error('Contract not initialized');
+  return await contract.getBatchEvents(batchId);
+}
+
+module.exports = {
+  init,
+  createBatch,
+  addEvent,
+  transferOwnership,
+  getBatchOwner,
+  getBatchMetadata,
+  getBatchEvents,
+};

@@ -1,92 +1,68 @@
-﻿const express = require("express");
+﻿// backend/src/routes/herbs.js
+const express = require('express');
 const router = express.Router();
-const multer = require("multer");
-const path = require("path");
-const Herb = require("../models/herbModel");
-const bc = require("../services/blockchainService");
-const qrcode = require("qrcode");
+const herbsController = require('../controllers/herbsController');
+const multer = require('multer');
+const { validate, createHerbSchema, processingEventSchema, transferSchema, uploadHerbSchema } = require('../middleware/validation');
+const { authOptional, authRequired } = require('../middleware/auth');
+const jwt = require('jsonwebtoken');
 
-const UPLOAD_DIR = process.env.UPLOAD_DIR || "./uploads";
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, UPLOAD_DIR),
-  filename: (req, file, cb) => cb(null, `${Date.now()}_${file.originalname}`)
-});
+// Memory storage for direct buffer access (IPFS uploads)
+const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
-bc.init();
-
-// ✅ Create batch (supports JSON or multipart)
-router.post("/create", upload.single("image"), async (req, res) => {
-  try {
-    // Works whether request is JSON or multipart
-    const { batchId, farmerName, lat, lng, metadataURI } = req.body;
-    if (!batchId) return res.status(400).json({ error: "batchId required" });
-
-    const imagePath = req.file ? path.relative(process.cwd(), req.file.path) : "";
-
-    const herb = new Herb({
-      batchId,
-      farmerName,
-      geo: { type: "Point", coordinates: [parseFloat(lng || 0), parseFloat(lat || 0)] },
-      metadataURI: metadataURI || "",
-      imagePath
-    });
-    await herb.save();
-
-    try {
-      await bc.createBatchOnChain(batchId, "0x0000000000000000000000000000000000000000", metadataURI || "");
-    } catch (err) {
-      console.error("⚠️ Blockchain error:", err.message);
-      // Don't kill request, just mark chain call as failed
-    }
-
-
-    const traceUrl = `${req.protocol}://${req.get("host")}/api/herbs/trace/${encodeURIComponent(batchId)}`;
-    const qrDataURL = await qrcode.toDataURL(traceUrl);
-
-    return res.json({ herb, qr: qrDataURL, traceUrl });
-  } catch (err) {
-    console.error("❌ /create error:", err);
-    return res.status(500).json({ error: err.message });
+// === Listing ===
+router.get('/', herbsController.listHerbs);
+// Dev helper to mint JWT quickly (only if JWT_SECRET & AUTH_DEV_MODE=1)
+router.get('/dev/token', (req, res) => {
+  if (process.env.AUTH_DEV_MODE !== '1' || !process.env.JWT_SECRET) {
+    return res.status(404).json({ error: { code: 'not_found', message: 'Disabled' } });
   }
+  const role = req.query.role || 'farmer';
+  const token = jwt.sign({ sub: 'dev-user', role }, process.env.JWT_SECRET, { expiresIn: '2h' });
+  res.json({ data: { token, role } });
 });
 
-router.post("/update", express.json(), async (req, res) => {
-  try {
-    const { batchId, actor, data } = req.body;
-    if (!batchId) return res.status(400).json({ error: "batchId required" });
-    const herb = await Herb.findOne({ batchId });
-    if (!herb) return res.status(404).json({ error: "batch not found" });
+// Simple deprecation wrapper
+function deprecatedRoute(canonicalPath) {
+  return function (req, res, next) {
+    res.setHeader('Deprecation', 'true');
+    res.setHeader('Link', `<${canonicalPath}>; rel="successor-version"`);
+    res.setHeader('Warning', '299 - "Deprecated endpoint; switch to canonical path"');
+    next();
+  };
+}
 
-    herb.processingEvents.push({ actor, data });
-    await herb.save();
+// === Creation (canonical + legacy) ===
+router.post('/', authRequired, validate(createHerbSchema), herbsController.createHerb); // canonical per OpenAPI
+router.post('/create', deprecatedRoute('/api/herbs'), authRequired, validate(createHerbSchema), herbsController.createHerb); // deprecated legacy path
 
-    try {
-      await bc.addEventOnChain(batchId, actor, data);
-    } catch (err) {
-      console.error("⚠️ Blockchain error (update):", err.message);
-    }
-    return res.json({ herb });
-  } catch (err) {
-    console.error("❌ /update error:", err);
-    return res.status(500).json({ error: err.message });
-  }
-});
+// Multipart creation with media
+router.post('/upload', authRequired, validate(uploadHerbSchema), upload.single('photo'), herbsController.uploadHerbWithMedia);
 
-router.get("/trace/:batchId", async (req, res) => {
-  try {
-    const batchId = req.params.batchId;
-    const herb = await Herb.findOne({ batchId }).lean();
-    if (!herb) return res.status(404).json({ error: "batch not found" });
+// AI validation
+router.post('/validate-image', upload.single('photo'), herbsController.validateImage);
 
-    return res.json({
-      herb,
-      chain: { mock: !process.env.HERB_REGISTRY_ADDRESS, notes: "Chain integration active if HERB_REGISTRY_ADDRESS set" }
-    });
-  } catch (err) {
-    console.error("❌ /trace error:", err);
-    return res.status(500).json({ error: err.message });
-  }
-});
+// Processing events (canonical + legacy /events)
+// NOTE: leading slashes were missing previously causing 404s (e.g. /api/herbs/B1/process)
+router.post('/:batchId/process', authRequired, express.json(), validate(processingEventSchema), herbsController.addProcessingEvent);
+router.post(
+  '/:batchId/events',
+  deprecatedRoute('/api/herbs/:batchId/process'),
+  authRequired,
+  express.json(),
+  validate(processingEventSchema),
+  herbsController.addProcessingEvent
+); // deprecated legacy path
+
+// Trace aliases
+router.get('/trace/:batchId', herbsController.getTrace); // alias form /api/herbs/trace/:batchId
+router.get('/:batchId/trace', herbsController.getTrace); // primary form /api/herbs/:batchId/trace
+
+// QR code
+router.get('/:batchId/qrcode', herbsController.getQrCode);
+
+// Ownership transfer
+router.post('/:batchId/transfer', authRequired, express.json(), validate(transferSchema), herbsController.transferOwnership);
 
 module.exports = router;

@@ -11,15 +11,24 @@ paths:
   /herbs:
     get:
       summary: List all herbs
+      description: Paginated list. Query params: page (>=1), limit (1-100). Returns { data: { items: [...], page, limit, total, pages, hasNext, hasPrev } }
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 1, default: 1 }
+          description: Page number (1-based)
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+          description: Page size
       responses:
         "200":
-          description: Array of all herb batches
+          description: Paginated herb list
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Herb"
+                $ref: "#/components/schemas/PaginatedHerbListResponse"
+  "500": { $ref: "#/components/responses/Error500" }
     post:
       summary: Create herb batch (JSON only)
       requestBody:
@@ -34,7 +43,39 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Herb"
+                $ref: "#/components/schemas/HerbResponse"
+  "400": { $ref: "#/components/responses/Error400" }
+  "500": { $ref: "#/components/responses/Error500" }
+
+  /herbs/create:
+    post:
+      summary: Deprecated legacy create route (use POST /herbs)
+      deprecated: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HerbCreate"
+      responses:
+        "201":
+          description: Herb created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HerbResponse"
+          headers:
+  "400": { $ref: "#/components/responses/Error400" }
+  "500": { $ref: "#/components/responses/Error500" }
+            Deprecation:
+              description: Indicates this route is deprecated
+              schema: { type: string }
+            Warning:
+              description: Migration warning with successor path
+              schema: { type: string }
+            Link:
+              description: Successor version link
+              schema: { type: string }
 
   /herbs/upload:
     post:
@@ -48,8 +89,8 @@ paths:
               properties:
                 name: { type: string }
                 batchId: { type: string }
-                lat: { type: number, format: float }
-                lng: { type: number, format: float }
+                lat: { type: number, format: float, minimum: -90, maximum: 90 }
+                lng: { type: number, format: float, minimum: -180, maximum: 180 }
                 harvestedAt: { type: string, format: date-time }
                 photo:
                   type: string
@@ -60,7 +101,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Herb"
+                $ref: "#/components/schemas/HerbResponse"
+  "400": { $ref: "#/components/responses/Error400" }
+  "500": { $ref: "#/components/responses/Error500" }
 
   /herbs/validate-image:
     post:
@@ -82,9 +125,14 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AIValidation"
+                $ref: "#/components/schemas/AIValidationResponse"
         "400":
           description: Missing or invalid photo
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500": { $ref: "#/components/responses/Error500" }
 
   /herbs/{batchId}/process:
     post:
@@ -106,7 +154,46 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Herb"
+                $ref: "#/components/schemas/HerbResponse"
+  "400": { $ref: "#/components/responses/Error400" }
+  "404": { $ref: "#/components/responses/Error404" }
+  "500": { $ref: "#/components/responses/Error500" }
+
+  /herbs/{batchId}/events:
+    post:
+      summary: Deprecated legacy processing event route (use /herbs/{batchId}/process)
+      deprecated: true
+      parameters:
+        - name: batchId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProcessEventInput"
+      responses:
+        "200":
+          description: Updated herb with events
+          headers:
+            Deprecation:
+              description: Indicates this route is deprecated
+              schema: { type: string }
+            Warning:
+              description: Migration warning with successor path
+              schema: { type: string }
+            Link:
+              description: Successor version link
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HerbResponse"
+  "400": { $ref: "#/components/responses/Error400" }
+  "404": { $ref: "#/components/responses/Error404" }
+  "500": { $ref: "#/components/responses/Error500" }
 
   /herbs/{batchId}/trace:
     get:
@@ -122,7 +209,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Trace"
+                $ref: "#/components/schemas/TraceResponse"
+  "404": { $ref: "#/components/responses/Error404" }
+  "500": { $ref: "#/components/responses/Error500" }
 
   /herbs/{batchId}/qrcode:
     get:
@@ -137,6 +226,8 @@ paths:
           description: QR code SVG
           content:
             image/svg+xml: {}
+  "404": { $ref: "#/components/responses/Error404" }
+  "500": { $ref: "#/components/responses/Error500" }
 
   /herbs/{batchId}/transfer:
     post:
@@ -161,10 +252,36 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Herb"
+                $ref: "#/components/schemas/HerbResponse"
+  "400": { $ref: "#/components/responses/Error400" }
+  "404": { $ref: "#/components/responses/Error404" }
+  "500": { $ref: "#/components/responses/Error500" }
+
+  /metrics:
+    get:
+      summary: Metrics (Prometheus format - placeholder)
+      responses:
+        "200":
+          description: Plain text metrics
+          content:
+            text/plain: {}
 
 components:
   schemas:
+    ResponseWrapper:
+      type: object
+      properties:
+        data: {}
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }
+
     Herb:
       type: object
       properties:
@@ -219,7 +336,7 @@ components:
     OwnershipTransfer:
       type: object
       properties:
-        to: { type: string }
+  to: { type: string, pattern: "^0x[a-fA-F0-9]{3,}$" }
         timestamp: { type: string, format: date-time }
 
     AIValidation:
@@ -247,3 +364,73 @@ components:
         chain: { type: object }
         traceUrl: { type: string }
         qr: { type: string }
+    HerbResponse:
+      allOf:
+        - $ref: "#/components/schemas/ResponseWrapper"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/Herb"
+    HerbListResponse:
+      allOf:
+        - $ref: "#/components/schemas/ResponseWrapper"
+        - type: object
+          properties:
+            data:
+              type: array
+              items: { $ref: "#/components/schemas/Herb" }
+    PaginatedHerbListResponse:
+      allOf:
+        - $ref: "#/components/schemas/ResponseWrapper"
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                items:
+                  type: array
+                  items: { $ref: "#/components/schemas/Herb" }
+                page: { type: integer }
+                limit: { type: integer }
+                total: { type: integer }
+                pages: { type: integer }
+                hasNext: { type: boolean }
+                hasPrev: { type: boolean }
+    TraceResponse:
+      allOf:
+        - $ref: "#/components/schemas/ResponseWrapper"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/Trace"
+    AIValidationResponse:
+      allOf:
+        - $ref: "#/components/schemas/ResponseWrapper"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/AIValidation"
+  responses:
+    Error400:
+      description: Bad request / validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Error404:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Error500:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

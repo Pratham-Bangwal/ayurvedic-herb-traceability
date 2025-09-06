@@ -1,8 +1,16 @@
 ﻿const hre = require("hardhat");
+
 async function main() {
   const HerbRegistry = await hre.ethers.getContractFactory("HerbRegistry");
-  const herb = await HerbRegistry.deploy();
-  await herb.deployed();
-  console.log("HerbRegistry deployed to:", herb.address);
+  const herbRegistry = await HerbRegistry.deploy();
+
+  // ethers v6 uses waitForDeployment
+  await herbRegistry.waitForDeployment();
+
+  console.log("HerbRegistry deployed to:", await herbRegistry.getAddress());
 }
-main().catch((err) => { console.error(err); process.exit(1); });
+
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});

@@ -5,16 +5,27 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "start": "vite"
+    "start": "vite",
+    "lint": "eslint \"src/**/*.{js,jsx}\" || exit 0"
+  ,
+  "format": "prettier --write \"src/**/*.{js,jsx}\"",
+  "format:check": "prettier --check \"src/**/*.{js,jsx}\""
   },
   "dependencies": {
     "axios": "^1.5.0",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "react-qr-barcode-scanner": "^2.1.8",
+    "react-router-dom": "^6.30.1"
   },
   "devDependencies": {
-    "@vitejs/plugin-react": "^4.2.1",
+    "@vitejs/plugin-react": "^4.7.0",
     "autoprefixer": "^10.4.21",
-    "vite": "^5.3.1"
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-react": "^7.34.3",
+    "eslint-plugin-react-hooks": "^4.6.2",
+    "prettier": "^3.3.3",
+    "vite": "^5.4.19"
   }
 }

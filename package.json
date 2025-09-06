@@ -1,13 +1,32 @@
-﻿{
+{
   "name": "ayurvedic-herb-traceability",
   "private": true,
   "version": "0.1.0",
-  "workspaces": ["backend", "frontend-web", "mobile-app", "blockchain"],
   "scripts": {
+    "preinstall": "echo Using npm workspaces; installing...",
     "start:all": "docker-compose up --build",
-    "start:backend": "npm --workspace backend run dev",
-    "start:web": "npm --workspace frontend-web run dev",
-    "start:blockchain": "npm --workspace blockchain run node",
-    "lint": "echo lint placeholder"
-  }
+    "start:backend": "cd backend && npm run dev",
+    "start:web": "cd frontend-web && npm run dev",
+    "start:blockchain": "cd blockchain && npm run node",
+    "start:mobile": "cd mobile-app && npm start",
+    "dev:all": "concurrently -n backend,web -c green,cyan \"npm:dev --workspace backend\" \"npm:dev --workspace frontend-web\"",
+    "lint": "npm --workspace backend run lint && npm --workspace frontend-web run lint || echo lint completed with warnings",
+    "format": "npm --workspace backend run format && npm --workspace frontend-web run format",
+    "format:check": "npm --workspace backend run format:check && npm --workspace frontend-web run format:check",
+    "prepare": "node scripts/husky-prepare.js"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "husky": "^8.0.3"
+  },
+  "workspaces": [
+    "backend",
+    "frontend-web",
+    "blockchain",
+    "mobile-app"
+  ],
+  "dependencies": {
+    "jsonwebtoken": "^9.0.2"
+  },
+  "overrides": {}
 }

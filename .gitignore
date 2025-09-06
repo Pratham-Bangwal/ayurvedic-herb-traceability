@@ -1,7 +1,15 @@
-﻿# Node.js
+﻿# Node.js dependencies
 node_modules/
-npm-debug.log
-yarn-error.log
+**/node_modules/
+
+# Package managers
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
 
 # Build outputs
 build/
@@ -9,28 +17,34 @@ dist/
 coverage/
 .next/
 out/
+*.tsbuildinfo
 
 # Environment files
 .env
 .env.local
-.env.production
 .env.development
+.env.production
+**/.env
 
 # Logs
 logs/
 *.log
 
-# Docker
+# Docker artifacts
 *.pid
 *.seed
 *.pid.lock
 
-# OS
+# OS files
 .DS_Store
 Thumbs.db
 
-# Uploads
+# Uploads & cache
 uploads/
+.cache/
+.tmp/
+
+# Project-specific ignores
 backend/.env
 frontend-web/.env
 mobile-app/.env
