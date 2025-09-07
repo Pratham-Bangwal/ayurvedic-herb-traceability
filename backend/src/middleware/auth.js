@@ -59,7 +59,8 @@ function authRequired(req, res, next) {
   }
   const token = extractJwt(req);
   if (process.env.JWT_SECRET) {
-    if (!token) return res.status(401).json({ error: { code: 'auth_required', message: 'Token required' } });
+    if (!token)
+      return res.status(401).json({ error: { code: 'auth_required', message: 'Token required' } });
     try {
       const payload = jwt.verify(token, process.env.JWT_SECRET);
       if (payload.role) applyRole(req, payload.role);

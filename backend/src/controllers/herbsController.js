@@ -123,7 +123,7 @@ exports.uploadHerbWithMedia = async (req, res) => {
     if (req.file && req.file.buffer) {
       try {
         const { cid } = await addFileBuffer(req.file.buffer);
-  logger.info({ cid }, 'Uploaded to IPFS');
+        logger.info({ cid }, 'Uploaded to IPFS');
         doc.ipfsHash = cid;
         doc.photoIpfsCid = cid;
         await repoSave(doc);
@@ -156,7 +156,7 @@ exports.uploadHerbWithMedia = async (req, res) => {
 
     success(res, { ...doc.toObject(), chain, aiValidation, traceUrl, qr: qrDataURL }, 201);
   } catch (e2) {
-  logger.error({ err: e2.message }, 'uploadHerbWithMedia failed');
+    logger.error({ err: e2.message }, 'uploadHerbWithMedia failed');
     error(res, 'bad_request', e2.message, 400);
   }
 };
@@ -198,8 +198,8 @@ exports.addProcessingEvent = async (req, res) => {
       }
     }
 
-  const effectiveActor = req.user?.role ? `${req.user.role}:${actor}` : actor;
-  const event = { actor: effectiveActor, data, timestamp: new Date() };
+    const effectiveActor = req.user?.role ? `${req.user.role}:${actor}` : actor;
+    const event = { actor: effectiveActor, data, timestamp: new Date() };
     if (!Array.isArray(target.processingEvents)) target.processingEvents = [];
     target.processingEvents.push(event);
     await repoSave(target);
@@ -266,7 +266,7 @@ exports.getQrCode = async (req, res) => {
 exports.transferOwnership = async (req, res) => {
   try {
     const { batchId } = req.params;
-  const { newOwner } = req.body;
+    const { newOwner } = req.body;
     if (!newOwner) return error(res, 'new_owner_required', 'newOwner required', 400);
 
     const doc = await repoFindOneMutable(batchId);
@@ -291,8 +291,8 @@ exports.transferOwnership = async (req, res) => {
     }
 
     if (!target.ownershipTransfers) target.ownershipTransfers = [];
-  const performedBy = req.user?.role || 'unknown';
-  target.ownershipTransfers.push({ to: newOwner, by: performedBy, timestamp: new Date() });
+    const performedBy = req.user?.role || 'unknown';
+    target.ownershipTransfers.push({ to: newOwner, by: performedBy, timestamp: new Date() });
 
     await repoSave(target);
     const out = target.toObject ? target.toObject() : target;

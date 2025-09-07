@@ -12,8 +12,14 @@ describe('Validation Schemas', () => {
   });
 
   test('uploadHerbSchema lat/lng range', () => {
-    expect(() => uploadHerbSchema.parse({ name: 'H', batchId: 'B', lat: '91', lng: '10' })).toThrow(/lat out of range/);
-    expect(() => uploadHerbSchema.parse({ name: 'H', batchId: 'B', lat: '10', lng: '181' })).toThrow(/lng out of range/);
-    expect(() => uploadHerbSchema.parse({ name: 'H', batchId: 'B', lat: '-45.5', lng: '120.2' })).not.toThrow();
+    expect(() => uploadHerbSchema.parse({ name: 'H', batchId: 'B', lat: '91', lng: '10' })).toThrow(
+      /lat out of range/
+    );
+    expect(() =>
+      uploadHerbSchema.parse({ name: 'H', batchId: 'B', lat: '10', lng: '181' })
+    ).toThrow(/lng out of range/);
+    expect(() =>
+      uploadHerbSchema.parse({ name: 'H', batchId: 'B', lat: '-45.5', lng: '120.2' })
+    ).not.toThrow();
   });
 });

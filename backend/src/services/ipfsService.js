@@ -12,7 +12,8 @@ const logger = require('../utils/logger');
 let __lastPinataWarn = 0;
 function maybeWarnPinata(message) {
   const now = Date.now();
-  if (now - __lastPinataWarn > 10_000) { // throttle every 10s
+  if (now - __lastPinataWarn > 10_000) {
+    // throttle every 10s
     __lastPinataWarn = now;
     logger.warn(message);
   }
@@ -44,7 +45,10 @@ async function addFileBuffer(buffer, fileName = 'herb.jpg') {
 
     return { cid: res.data.IpfsHash };
   } catch (err) {
-    logger.error({ err: err.response?.data || err.message }, 'Pinata file upload failed, using demo CID');
+    logger.error(
+      { err: err.response?.data || err.message },
+      'Pinata file upload failed, using demo CID'
+    );
     const cid = 'demo-' + crypto.createHash('sha256').update(buffer).digest('hex').slice(0, 32);
     return { cid };
   }
@@ -69,7 +73,10 @@ async function addJSON(obj) {
 
     return { cid: res.data.IpfsHash };
   } catch (err) {
-  logger.error({ err: err.response?.data || err.message }, 'Pinata JSON upload failed, using demo CID');
+    logger.error(
+      { err: err.response?.data || err.message },
+      'Pinata JSON upload failed, using demo CID'
+    );
     const cid =
       'demo-' + crypto.createHash('sha256').update(JSON.stringify(obj)).digest('hex').slice(0, 32);
     return { cid };

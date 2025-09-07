@@ -122,7 +122,8 @@ export default function TraceabilityView({ batchId }) {
                 <i>({new Date(ev.timestamp).toLocaleString()})</i>
                 {ev.chain && (
                   <div style={{ fontSize: '11px', marginTop: '4px', opacity: 0.8 }}>
-                    tx: {truncate(ev.chain.txHash)} • blk: {ev.chain.blockNumber || '—'} • {ev.chain.action || 'EVENT'}
+                    tx: {truncate(ev.chain.txHash)} • blk: {ev.chain.blockNumber || '—'} •{' '}
+                    {ev.chain.action || 'EVENT'}
                   </div>
                 )}
               </li>
@@ -170,7 +171,8 @@ export default function TraceabilityView({ batchId }) {
                 {tr.by && <span style={{ marginLeft: '6px', fontSize: '12px' }}>by {tr.by}</span>}
                 {tr.chain && (
                   <div style={{ fontSize: '11px', marginTop: '4px', opacity: 0.8 }}>
-                    tx: {truncate(tr.chain.txHash)} • blk: {tr.chain.blockNumber || '—'} • {tr.chain.action || 'TRANSFER'}
+                    tx: {truncate(tr.chain.txHash)} • blk: {tr.chain.blockNumber || '—'} •{' '}
+                    {tr.chain.action || 'TRANSFER'}
                   </div>
                 )}
               </li>

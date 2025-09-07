@@ -32,18 +32,33 @@ async function createBatch(batchId, owner, metadataURI) {
     store.events[batchId] = [];
     store.ownership[batchId] = owner;
   }
-  return { txHash: pseudoHash(batchId + owner), blockNumber: nextBlock(), action: 'CREATE', mock: true };
+  return {
+    txHash: pseudoHash(batchId + owner),
+    blockNumber: nextBlock(),
+    action: 'CREATE',
+    mock: true,
+  };
 }
 
 async function addEvent(batchId, actor, data) {
   if (!store.events[batchId]) store.events[batchId] = [];
   store.events[batchId].push({ actor, data, timestamp: new Date().toISOString() });
-  return { txHash: pseudoHash(batchId + actor), blockNumber: nextBlock(), action: 'EVENT', mock: true };
+  return {
+    txHash: pseudoHash(batchId + actor),
+    blockNumber: nextBlock(),
+    action: 'EVENT',
+    mock: true,
+  };
 }
 
 async function transferOwnership(batchId, newOwner) {
   store.ownership[batchId] = newOwner;
-  return { txHash: pseudoHash(batchId + newOwner), blockNumber: nextBlock(), action: 'TRANSFER', mock: true };
+  return {
+    txHash: pseudoHash(batchId + newOwner),
+    blockNumber: nextBlock(),
+    action: 'TRANSFER',
+    mock: true,
+  };
 }
 
 async function getBatchOwner(batchId) {

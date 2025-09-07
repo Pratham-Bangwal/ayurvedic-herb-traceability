@@ -9,7 +9,9 @@ describe('Auth middleware', () => {
     expect(res.status).toBe(401);
   });
   test('accepts create with valid JWT + role', async () => {
-    const token = jwt.sign({ sub: 'u1', role: 'farmer' }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    const token = jwt.sign({ sub: 'u1', role: 'farmer' }, process.env.JWT_SECRET, {
+      expiresIn: '1h',
+    });
     const res = await request(app)
       .post('/api/herbs')
       .set('Authorization', `Bearer ${token}`)

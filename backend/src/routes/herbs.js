@@ -3,7 +3,13 @@ const express = require('express');
 const router = express.Router();
 const herbsController = require('../controllers/herbsController');
 const multer = require('multer');
-const { validate, createHerbSchema, processingEventSchema, transferSchema, uploadHerbSchema } = require('../middleware/validation');
+const {
+  validate,
+  createHerbSchema,
+  processingEventSchema,
+  transferSchema,
+  uploadHerbSchema,
+} = require('../middleware/validation');
 const { authOptional, authRequired } = require('../middleware/auth');
 const jwt = require('jsonwebtoken');
 
@@ -35,17 +41,35 @@ function deprecatedRoute(canonicalPath) {
 
 // === Creation (canonical + legacy) ===
 router.post('/', authRequired, validate(createHerbSchema), herbsController.createHerb); // canonical per OpenAPI
-router.post('/create', deprecatedRoute('/api/herbs'), authRequired, validate(createHerbSchema), herbsController.createHerb); // deprecated legacy path
+router.post(
+  '/create',
+  deprecatedRoute('/api/herbs'),
+  authRequired,
+  validate(createHerbSchema),
+  herbsController.createHerb
+); // deprecated legacy path
 
 // Multipart creation with media
-router.post('/upload', authRequired, validate(uploadHerbSchema), upload.single('photo'), herbsController.uploadHerbWithMedia);
+router.post(
+  '/upload',
+  authRequired,
+  validate(uploadHerbSchema),
+  upload.single('photo'),
+  herbsController.uploadHerbWithMedia
+);
 
 // AI validation
 router.post('/validate-image', upload.single('photo'), herbsController.validateImage);
 
 // Processing events (canonical + legacy /events)
 // NOTE: leading slashes were missing previously causing 404s (e.g. /api/herbs/B1/process)
-router.post('/:batchId/process', authRequired, express.json(), validate(processingEventSchema), herbsController.addProcessingEvent);
+router.post(
+  '/:batchId/process',
+  authRequired,
+  express.json(),
+  validate(processingEventSchema),
+  herbsController.addProcessingEvent
+);
 router.post(
   '/:batchId/events',
   deprecatedRoute('/api/herbs/:batchId/process'),
@@ -63,6 +87,12 @@ router.get('/:batchId/trace', herbsController.getTrace); // primary form /api/he
 router.get('/:batchId/qrcode', herbsController.getQrCode);
 
 // Ownership transfer
-router.post('/:batchId/transfer', authRequired, express.json(), validate(transferSchema), herbsController.transferOwnership);
+router.post(
+  '/:batchId/transfer',
+  authRequired,
+  express.json(),
+  validate(transferSchema),
+  herbsController.transferOwnership
+);
 
 module.exports = router;

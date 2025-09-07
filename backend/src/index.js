@@ -45,7 +45,10 @@ if (process.env.NODE_ENV !== 'test') {
   app.use(limiter);
   // Stricter limits for mutation endpoints
   const mutateLimiter = rateLimit({ windowMs: 60 * 1000, max: 30 });
-  app.use(['/api/herbs', '/api/herbs/upload', /\/api\/herbs\/.+\/(process|events|transfer)$/], mutateLimiter);
+  app.use(
+    ['/api/herbs', '/api/herbs/upload', /\/api\/herbs\/.+\/(process|events|transfer)$/],
+    mutateLimiter
+  );
 }
 app.use(express.urlencoded({ extended: true }));
 
@@ -73,9 +76,12 @@ app.get('/metrics', (req, res) => {
 app.use((req, res, next) => {
   const start = Date.now();
   res.on('finish', () => {
-  const ms = Date.now() - start;
-  record(ms, res.statusCode);
-  logger.info({ id: req.id, method: req.method, url: req.originalUrl, status: res.statusCode, ms }, 'req');
+    const ms = Date.now() - start;
+    record(ms, res.statusCode);
+    logger.info(
+      { id: req.id, method: req.method, url: req.originalUrl, status: res.statusCode, ms },
+      'req'
+    );
   });
   next();
 });
@@ -121,7 +127,10 @@ if (process.env.NODE_ENV !== 'test' && !process.env.TEST_ENV) {
   function attempt(port, remaining) {
     const server = app.listen(port);
     server.once('listening', () => {
-      logger.info({ port, mock: isMock(), attempt: MAX_TRIES - remaining + 1 }, 'Backend listening');
+      logger.info(
+        { port, mock: isMock(), attempt: MAX_TRIES - remaining + 1 },
+        'Backend listening'
+      );
       connectMongo();
       graceful(server);
     });
