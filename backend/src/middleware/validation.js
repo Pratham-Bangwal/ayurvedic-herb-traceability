@@ -1,6 +1,5 @@
 // backend/src/middleware/validation.js
 const { z } = require('zod');
-const { error } = require('../utils/response');
 
 // Schemas
 const createHerbSchema = z.object({
@@ -12,8 +11,16 @@ const createHerbSchema = z.object({
 const uploadHerbSchema = z.object({
   batchId: z.string().min(1, 'batchId required'),
   name: z.string().min(1, 'name required'),
-  lat: z.string().optional(),
-  lng: z.string().optional(),
+  lat: z
+    .string()
+    .optional()
+    .refine((v) => (v === undefined ? true : !isNaN(parseFloat(v))), 'lat must be number')
+    .refine((v) => (v === undefined ? true : Math.abs(parseFloat(v)) <= 90), 'lat out of range'),
+  lng: z
+    .string()
+    .optional()
+    .refine((v) => (v === undefined ? true : !isNaN(parseFloat(v))), 'lng must be number')
+    .refine((v) => (v === undefined ? true : Math.abs(parseFloat(v)) <= 180), 'lng out of range'),
 });
 
 const processingEventSchema = z.object({
@@ -22,7 +29,10 @@ const processingEventSchema = z.object({
 });
 
 const transferSchema = z.object({
-  newOwner: z.string().min(1, 'newOwner required'),
+  newOwner: z
+    .string()
+    .min(1, 'newOwner required')
+    .regex(/^0x[a-fA-F0-9]+$/, 'hex address required'),
 });
 
 function validate(schema) {

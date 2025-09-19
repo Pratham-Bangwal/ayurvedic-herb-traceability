@@ -23,23 +23,23 @@ class ErrorBoundary extends React.Component {
               <h1>🚨 Oops! Something went wrong</h1>
               <p>We encountered an unexpected error</p>
             </div>
-            
+
             <div className="content">
               <div className="form-section">
-                <div style={{ 
-                  textAlign: 'center', 
-                  padding: '40px',
-                  color: '#666'
-                }}>
+                <div
+                  style={{
+                    textAlign: 'center',
+                    padding: '40px',
+                    color: '#666',
+                  }}
+                >
                   <div style={{ fontSize: '48px', marginBottom: '20px' }}>😔</div>
-                  <h3 style={{ color: '#2c5530', marginBottom: '15px' }}>
-                    Error Details
-                  </h3>
+                  <h3 style={{ color: '#2c5530', marginBottom: '15px' }}>Error Details</h3>
                   <p style={{ marginBottom: '20px' }}>
                     {this.state.error?.message || 'An unexpected error occurred'}
                   </p>
-                  
-                  <button 
+
+                  <button
                     onClick={() => {
                       this.setState({ hasError: false, error: null });
                       window.location.reload();
@@ -50,9 +50,9 @@ class ErrorBoundary extends React.Component {
                     <span>🔄</span>
                     Try Again
                   </button>
-                  
-                  <button 
-                    onClick={() => window.location.href = '/'}
+
+                  <button
+                    onClick={() => (window.location.href = '/')}
                     className="modern-button secondary"
                   >
                     <span>🏠</span>

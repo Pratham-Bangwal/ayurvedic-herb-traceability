@@ -11,11 +11,19 @@ function useMemory() {
   return !global.mongoConnected;
 }
 
-// List all herbs
+// List all herbs (paginated structure expected by tests)
 exports.listHerbs = async (req, res) => {
   try {
-    const herbs = useMemory() ? [] : await Herb.find().limit(50);
-    res.json({ data: herbs });
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = Math.min(parseInt(req.query.limit, 10) || 10, 50);
+    const skip = (page - 1) * limit;
+    let items = [];
+    let total = 0;
+    if (!useMemory()) {
+      total = await Herb.countDocuments();
+      items = await Herb.find().skip(skip).limit(limit).lean();
+    }
+    res.json({ data: { items, page, total } });
   } catch (error) {
     res.status(500).json({ error: { message: error.message } });
   }
@@ -24,22 +32,22 @@ exports.listHerbs = async (req, res) => {
 // Create herb (JSON-based)
 exports.createHerb = async (req, res) => {
   try {
-    const { 
-      batchId, 
-      name, 
-      herbName, 
-      farmerName, 
-      plantingDate, 
-      harvestDate, 
-      quantity, 
-      unit, 
-      farmLocation, 
-      lat, 
-      lng, 
-      organicCertified, 
-      notes 
+    const {
+      batchId,
+      name,
+      herbName,
+      farmerName,
+      plantingDate,
+      harvestDate,
+      quantity,
+      unit,
+      farmLocation,
+      lat,
+      lng,
+      organicCertified,
+      notes,
     } = req.body;
-    
+
     const herbData = {
       batchId,
       name: herbName || name, // Use herbName if provided, fallback to name for compatibility
@@ -52,29 +60,34 @@ exports.createHerb = async (req, res) => {
       farmLocation,
       organicCertified: Boolean(organicCertified),
       notes,
-      geo: lat && lng ? { type: 'Point', coordinates: [parseFloat(lng), parseFloat(lat)] } : undefined
+      geo:
+        lat && lng ? { type: 'Point', coordinates: [parseFloat(lng), parseFloat(lat)] } : undefined,
     };
 
     // Remove undefined fields
-    Object.keys(herbData).forEach(key => herbData[key] === undefined && delete herbData[key]);
+    Object.keys(herbData).forEach((key) => herbData[key] === undefined && delete herbData[key]);
 
-    const herb = useMemory() 
+    const herb = useMemory()
       ? { ...herbData, _id: Date.now(), createdAt: new Date() }
       : await Herb.create(herbData);
 
-  // Generate QR code using configured frontend base (fallback to request origin or localhost)
-  const frontBaseRaw = process.env.FRONTEND_BASE_URL || req.headers['x-forwarded-origin'] || req.headers.origin || 'http://localhost:5173';
-  const frontBase = (frontBaseRaw || '').replace(/\/$/, '');
-  const traceUrl = `${frontBase}/trace/${batchId}`;
+    // Generate QR code using configured frontend base (fallback to request origin or localhost)
+    const frontBaseRaw =
+      process.env.FRONTEND_BASE_URL ||
+      req.headers['x-forwarded-origin'] ||
+      req.headers.origin ||
+      'http://localhost:5173';
+    const frontBase = (frontBaseRaw || '').replace(/\/$/, '');
+    const traceUrl = `${frontBase}/trace/${batchId}`;
     const qrDataURL = await qrcode.toDataURL(traceUrl);
 
-    res.status(201).json({ 
-      data: { 
-        ...herb, 
-        traceUrl, 
+    res.status(201).json({
+      data: {
+        ...herb,
+        traceUrl,
         qr: qrDataURL,
-        chain: await mockCreateBatch()
-      } 
+        chain: await mockCreateBatch(),
+      },
     });
   } catch (error) {
     res.status(400).json({ error: { message: error.message } });
@@ -92,27 +105,32 @@ exports.uploadHerbWithMedia = async (req, res) => {
       batchId,
       name,
       farmerName: name, // use name as farmer name if not provided
-      geo: lat && lng ? { type: 'Point', coordinates: [parseFloat(lng), parseFloat(lat)] } : undefined,
-      photoIpfsCid: fileResult ? fileResult.cid : undefined
+      geo:
+        lat && lng ? { type: 'Point', coordinates: [parseFloat(lng), parseFloat(lat)] } : undefined,
+      photoIpfsCid: fileResult ? fileResult.cid : undefined,
     };
 
-    const herb = useMemory() 
+    const herb = useMemory()
       ? { ...herbData, _id: Date.now(), createdAt: new Date() }
       : await Herb.create(herbData);
 
-  // Generate QR code using configured frontend base (fallback to request origin or localhost)
-  const frontBaseRaw = process.env.FRONTEND_BASE_URL || req.headers['x-forwarded-origin'] || req.headers.origin || 'http://localhost:5173';
-  const frontBase = (frontBaseRaw || '').replace(/\/$/, '');
-  const traceUrl = `${frontBase}/trace/${batchId}`;
+    // Generate QR code using configured frontend base (fallback to request origin or localhost)
+    const frontBaseRaw =
+      process.env.FRONTEND_BASE_URL ||
+      req.headers['x-forwarded-origin'] ||
+      req.headers.origin ||
+      'http://localhost:5173';
+    const frontBase = (frontBaseRaw || '').replace(/\/$/, '');
+    const traceUrl = `${frontBase}/trace/${batchId}`;
     const qrDataURL = await qrcode.toDataURL(traceUrl);
 
-    res.status(201).json({ 
-      data: { 
-        ...herb, 
-        traceUrl, 
+    res.status(201).json({
+      data: {
+        ...herb,
+        traceUrl,
         qr: qrDataURL,
-        chain: await mockCreateBatch()
-      } 
+        chain: await mockCreateBatch(),
+      },
     });
   } catch (error) {
     res.status(400).json({ error: { message: error.message } });
@@ -124,14 +142,22 @@ exports.addProcessingEvent = async (req, res) => {
   try {
     const { batchId } = req.params;
     const { actor, data } = req.body;
+    const rolePrefix = req.user?.role ? `${req.user.role}:` : '';
 
     if (useMemory()) {
       // Mock response for memory mode
-      return res.json({ 
-        data: { 
-          batchId, 
-          processingEvents: [{ actor, data, timestamp: new Date(), chain: await mockCreateBatch() }] 
-        } 
+      return res.json({
+        data: {
+          batchId,
+          processingEvents: [
+            {
+              actor: rolePrefix + actor,
+              data,
+              timestamp: new Date(),
+              chain: await mockCreateBatch(),
+            },
+          ],
+        },
       });
     }
 
@@ -139,10 +165,10 @@ exports.addProcessingEvent = async (req, res) => {
     if (!herb) return res.status(404).json({ error: { message: 'Herb not found' } });
 
     const event = {
-      actor,
+      actor: rolePrefix + actor,
       data,
       timestamp: new Date(),
-      chain: await mockCreateBatch()
+      chain: await mockCreateBatch(),
     };
 
     herb.processingEvents.push(event);
@@ -162,11 +188,13 @@ exports.transferOwnership = async (req, res) => {
 
     if (useMemory()) {
       // Mock response for memory mode
-      return res.json({ 
-        data: { 
-          batchId, 
-          ownershipTransfers: [{ to: newOwner, timestamp: new Date(), chain: await mockCreateBatch() }] 
-        } 
+      return res.json({
+        data: {
+          batchId,
+          ownershipTransfers: [
+            { to: newOwner, timestamp: new Date(), chain: await mockCreateBatch() },
+          ],
+        },
       });
     }
 
@@ -176,7 +204,7 @@ exports.transferOwnership = async (req, res) => {
     const transfer = {
       to: newOwner,
       timestamp: new Date(),
-      chain: await mockCreateBatch()
+      chain: await mockCreateBatch(),
     };
 
     herb.ownershipTransfers.push(transfer);
@@ -217,7 +245,7 @@ exports.getTrace = async (req, res) => {
         ownershipTransfers: [],
         createdAt: new Date(),
         geo: { type: 'Point', coordinates: [77.23, 28.61] },
-        chain: { mock: true }
+        chain: { mock: true },
       };
       return res.json({ data: mockTrace });
     }
@@ -235,7 +263,7 @@ exports.getTrace = async (req, res) => {
       processingEvents: herb.processingEvents || [],
       ownershipTransfers: herb.ownershipTransfers || [],
       photoIpfsCid: herb.photoIpfsCid,
-      chain: herb.chain || { mock: true }
+      chain: herb.chain || { mock: true },
     };
 
     res.json({ data: trace });
@@ -248,11 +276,15 @@ exports.getTrace = async (req, res) => {
 exports.getQrCode = async (req, res) => {
   try {
     const { batchId } = req.params;
-    const frontBaseRaw = process.env.FRONTEND_BASE_URL || req.headers['x-forwarded-origin'] || req.headers.origin || 'http://localhost:5173';
+    const frontBaseRaw =
+      process.env.FRONTEND_BASE_URL ||
+      req.headers['x-forwarded-origin'] ||
+      req.headers.origin ||
+      'http://localhost:5173';
     const frontBase = (frontBaseRaw || '').replace(/\/$/, '');
     const traceUrl = `${frontBase}/trace/${batchId}`;
     const svg = await qrcode.toString(traceUrl, { type: 'svg' });
-    
+
     res.setHeader('Content-Type', 'image/svg+xml');
     res.send(svg);
   } catch (error) {
@@ -264,7 +296,7 @@ exports.getQrCode = async (req, res) => {
 exports.validateImage = async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: { message: 'Photo required' } });
-    
+
     const result = mockValidateImage();
     res.json({ data: result });
   } catch (error) {

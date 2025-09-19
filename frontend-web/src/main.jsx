@@ -33,7 +33,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
           v7_fetcherPersist: true,
           v7_normalizeFormMethod: true,
           v7_partialHydration: true,
-          v7_skipActionStatusRevalidation: true
+          v7_skipActionStatusRevalidation: true,
         }}
       >
         <Routes>
@@ -41,11 +41,14 @@ ReactDOM.createRoot(document.getElementById('root')).render(
           <Route path="/" element={<App />} />
 
           {/* QR Scanner */}
-          <Route path="/scan" element={
-            <ErrorBoundary>
-              <QrScanner />
-            </ErrorBoundary>
-          } />
+          <Route
+            path="/scan"
+            element={
+              <ErrorBoundary>
+                <QrScanner />
+              </ErrorBoundary>
+            }
+          />
 
           {/* Direct traceability view */}
           <Route path="/trace/:batchId" element={<TraceabilityViewWrapper />} />

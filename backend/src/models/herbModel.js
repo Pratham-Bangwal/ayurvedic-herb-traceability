@@ -2,19 +2,25 @@
 
 const geoSchema = new mongoose.Schema({
   type: { type: String, enum: ['Point'], default: 'Point' },
-  coordinates: { type: [Number], default: [0, 0] }
+  coordinates: { type: [Number], default: [0, 0] },
 });
 
-const eventSchema = new mongoose.Schema({
-  timestamp: { type: Date, default: Date.now },
-  actor: String,
-  data: String
-}, { _id: false });
+const eventSchema = new mongoose.Schema(
+  {
+    timestamp: { type: Date, default: Date.now },
+    actor: String,
+    data: String,
+  },
+  { _id: false }
+);
 
-const transferSchema = new mongoose.Schema({
-  to: String,
-  timestamp: { type: Date, default: Date.now }
-}, { _id: false });
+const transferSchema = new mongoose.Schema(
+  {
+    to: String,
+    timestamp: { type: Date, default: Date.now },
+  },
+  { _id: false }
+);
 
 const herbSchema = new mongoose.Schema({
   batchId: { type: String, required: true, unique: true },
@@ -35,9 +41,9 @@ const herbSchema = new mongoose.Schema({
   aiValidation: {
     confidence: Number,
     label: String,
-    mock: Boolean
+    mock: Boolean,
   },
-  createdAt: { type: Date, default: Date.now }
+  createdAt: { type: Date, default: Date.now },
 });
 
 module.exports = mongoose.model('Herb', herbSchema);

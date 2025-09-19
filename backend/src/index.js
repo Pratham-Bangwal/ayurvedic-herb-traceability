@@ -122,36 +122,37 @@ if (process.env.NODE_ENV !== 'test' && !process.env.TEST_ENV) {
   const BASE_PORT = parseInt(process.env.PORT, 10) || 4000;
   const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/herbs';
 
-  function connectMongo() {
-    mongoose.connect(MONGODB_URI, { 
-      useNewUrlParser: true, 
-      useUnifiedTopology: true,
-      serverSelectionTimeoutMS: 5000
-    })
-    .then(() => {
-      global.mongoConnected = true;
-      logger.info({ db: 'mongo', uri: MONGODB_URI }, 'Mongo connected');
-      
-      // Initialize blockchain service if available
-      try {
-        const blockchainService = require('./services/blockchain');
-        if (blockchainService.init) blockchainService.init();
-      } catch (e) {
-        logger.warn('Blockchain service not available');
-      }
-      
-      // Seed mock data if available
-      try {
-        const { seedMockData } = require('./seed/seedMock');
-        seedMockData();
-      } catch (e) {
-        logger.warn('Mock seeding not available');
-      }
-    })
-    .catch((err) => {
-      logger.warn({ err: err.message }, 'Mongo connect failed – operating without database');
-    });
-  }
+  const connectMongo = () => {
+    mongoose
+      .connect(MONGODB_URI, {
+        useNewUrlParser: true,
+        useUnifiedTopology: true,
+        serverSelectionTimeoutMS: 5000,
+      })
+      .then(() => {
+        global.mongoConnected = true;
+        logger.info({ db: 'mongo', uri: MONGODB_URI }, 'Mongo connected');
+
+        // Initialize blockchain service if available
+        try {
+          const blockchainService = require('./services/blockchain');
+          if (blockchainService.init) blockchainService.init();
+        } catch (e) {
+          logger.warn('Blockchain service not available');
+        }
+
+        // Seed mock data if available
+        try {
+          const { seedMockData } = require('./seed/seedMock');
+          seedMockData();
+        } catch (e) {
+          logger.warn('Mock seeding not available');
+        }
+      })
+      .catch((err) => {
+        logger.warn({ err: err.message }, 'Mongo connect failed – operating without database');
+      });
+  };
 
   const server = app.listen(BASE_PORT, () => {
     logger.info({ port: BASE_PORT }, 'Backend listening');

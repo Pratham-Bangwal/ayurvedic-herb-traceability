@@ -109,49 +109,55 @@ export default function TraceabilityView({ batchId }) {
           <span className="herb-icon">📋</span>
           Batch Information
         </h2>
-        
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
+
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+            gap: '20px',
+          }}
+        >
           <div className="info-card">
             <div className="info-label">Batch ID</div>
             <div className="info-value">{trace.batchId}</div>
           </div>
-          
+
           <div className="info-card">
             <div className="info-label">Herb Name</div>
             <div className="info-value">{trace.herbName || trace.name || 'N/A'}</div>
           </div>
-          
+
           <div className="info-card">
             <div className="info-label">Farmer</div>
             <div className="info-value">{trace.farmerName}</div>
           </div>
-          
+
           <div className="info-card">
             <div className="info-label">Farm Location</div>
             <div className="info-value">{trace.farmLocation || 'N/A'}</div>
           </div>
-          
+
           <div className="info-card">
             <div className="info-label">Planting Date</div>
             <div className="info-value">
               {trace.plantingDate ? new Date(trace.plantingDate).toLocaleDateString() : 'N/A'}
             </div>
           </div>
-          
+
           <div className="info-card">
             <div className="info-label">Harvest Date</div>
             <div className="info-value">
               {trace.harvestDate ? new Date(trace.harvestDate).toLocaleDateString() : 'N/A'}
             </div>
           </div>
-          
+
           <div className="info-card">
             <div className="info-label">Quantity</div>
             <div className="info-value">
               {trace.quantity ? `${trace.quantity} ${trace.unit || 'units'}` : 'N/A'}
             </div>
           </div>
-          
+
           <div className="info-card">
             <div className="info-label">Organic Status</div>
             <div className="info-value">
@@ -162,7 +168,7 @@ export default function TraceabilityView({ batchId }) {
               )}
             </div>
           </div>
-          
+
           <div className="info-card">
             <div className="info-label">Created</div>
             <div className="info-value">
@@ -175,11 +181,14 @@ export default function TraceabilityView({ batchId }) {
           <div style={{ marginTop: '20px' }}>
             <div className="info-card">
               <div className="info-label">📝 Additional Notes</div>
-              <div className="info-value" style={{ 
-                whiteSpace: 'pre-wrap', 
-                lineHeight: '1.5',
-                color: '#555' 
-              }}>
+              <div
+                className="info-value"
+                style={{
+                  whiteSpace: 'pre-wrap',
+                  lineHeight: '1.5',
+                  color: '#555',
+                }}
+              >
                 {trace.notes}
               </div>
             </div>
@@ -196,10 +205,10 @@ export default function TraceabilityView({ batchId }) {
               <img
                 alt="Farm Location Map"
                 src={`https://static-maps.yandex.ru/1.x/?ll=${lng},${lat}&z=15&size=450,300&l=map&pt=${lng},${lat},pm2rdm`}
-                style={{ 
-                  maxWidth: '100%', 
+                style={{
+                  maxWidth: '100%',
                   borderRadius: '10px',
-                  boxShadow: '0 5px 15px rgba(0, 0, 0, 0.1)'
+                  boxShadow: '0 5px 15px rgba(0, 0, 0, 0.1)',
                 }}
               />
             </div>
@@ -213,12 +222,12 @@ export default function TraceabilityView({ batchId }) {
               <img
                 alt="Herb"
                 src={`https://ipfs.io/ipfs/${trace.photoIpfsCid}`}
-                style={{ 
-                  maxWidth: '100%', 
+                style={{
+                  maxWidth: '100%',
                   maxHeight: '300px',
                   borderRadius: '10px',
                   boxShadow: '0 5px 15px rgba(0, 0, 0, 0.1)',
-                  marginTop: '15px'
+                  marginTop: '15px',
                 }}
               />
             </div>
@@ -232,7 +241,7 @@ export default function TraceabilityView({ batchId }) {
           <span className="herb-icon">⚙️</span>
           Processing History
         </h2>
-        
+
         {trace.processingEvents && trace.processingEvents.length > 0 ? (
           <ul className="timeline">
             {trace.processingEvents.map((ev, i) => (
@@ -262,7 +271,7 @@ export default function TraceabilityView({ batchId }) {
           <span className="herb-icon">🔄</span>
           Ownership History
         </h2>
-        
+
         {trace.ownershipTransfers && trace.ownershipTransfers.length > 0 ? (
           <ul className="timeline">
             {trace.ownershipTransfers.map((transfer, i) => (
@@ -292,7 +301,7 @@ export default function TraceabilityView({ batchId }) {
           <span className="herb-icon">➕</span>
           Add New Event
         </h2>
-        
+
         <form onSubmit={submitEvent}>
           <div className="form-grid">
             <div className="input-group">
@@ -305,7 +314,7 @@ export default function TraceabilityView({ batchId }) {
                 required
               />
             </div>
-            
+
             <div className="input-group">
               <label className="input-label">Event Description</label>
               <input
@@ -317,12 +326,8 @@ export default function TraceabilityView({ batchId }) {
               />
             </div>
           </div>
-          
-          <button 
-            type="submit" 
-            className="modern-button"
-            disabled={submitting}
-          >
+
+          <button type="submit" className="modern-button" disabled={submitting}>
             {submitting ? (
               <>
                 <span>⏳</span>
@@ -343,7 +348,7 @@ export default function TraceabilityView({ batchId }) {
           <span className="herb-icon">🔄</span>
           Transfer Ownership
         </h3>
-        
+
         <form onSubmit={submitTransfer}>
           <div className="input-group">
             <label className="input-label">New Owner</label>
@@ -355,12 +360,8 @@ export default function TraceabilityView({ batchId }) {
               required
             />
           </div>
-          
-          <button 
-            type="submit" 
-            className="modern-button secondary"
-            disabled={submitting}
-          >
+
+          <button type="submit" className="modern-button secondary" disabled={submitting}>
             {submitting ? (
               <>
                 <span>⏳</span>
@@ -376,7 +377,10 @@ export default function TraceabilityView({ batchId }) {
         </form>
 
         {actionMsg && (
-          <div className={`message ${actionMsg.includes('✅') ? 'success' : 'error'} fade-in`} style={{ marginTop: '20px' }}>
+          <div
+            className={`message ${actionMsg.includes('✅') ? 'success' : 'error'} fade-in`}
+            style={{ marginTop: '20px' }}
+          >
             {actionMsg}
           </div>
         )}

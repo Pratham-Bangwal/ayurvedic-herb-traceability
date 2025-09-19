@@ -1,10 +1,5 @@
 ﻿const { ethers } = require('ethers');
-const fs = require('fs');
-const path = require('path');
-
-// Load full ABI from compiled contract
-const abiPath = path.join(__dirname, '../../abi/HerbRegistry.json');
-const abi = JSON.parse(fs.readFileSync(abiPath, 'utf8')).abi;
+// No static filesystem access needed; ABI is loaded within init()
 
 let provider, contract;
 
@@ -21,7 +16,7 @@ function init() {
   try {
     provider = new ethers.JsonRpcProvider(rpc);
     const wallet = new ethers.Wallet(privateKey, provider);
-    
+
     // Load ABI safely
     let contractAbi;
     try {
@@ -30,12 +25,12 @@ function init() {
     } catch (abiError) {
       console.warn('⚠️ ABI file not found, using minimal ABI');
       contractAbi = [
-        "function createBatch(string batchId, string metadataURI)",
-        "function addEvent(string batchId, string actor, string data)",
-        "function transferOwnership(string batchId, address newOwner)"
+        'function createBatch(string batchId, string metadataURI)',
+        'function addEvent(string batchId, string actor, string data)',
+        'function transferOwnership(string batchId, address newOwner)',
       ];
     }
-    
+
     contract = new ethers.Contract(address, contractAbi, wallet);
     console.log('✅ Blockchain service connected:', address);
   } catch (error) {

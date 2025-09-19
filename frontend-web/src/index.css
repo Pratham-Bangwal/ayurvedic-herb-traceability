@@ -41,7 +41,7 @@ body {
 }
 
 .input-error::before {
-  content: "⚠️";
+  content: '⚠️';
   font-size: 12px;
 }
 
@@ -70,8 +70,12 @@ body {
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 .modern-button:disabled {
@@ -86,7 +90,7 @@ body {
 }
 
 .modern-button.loading::after {
-  content: "";
+  content: '';
   position: absolute;
   top: 50%;
   left: 50%;
@@ -101,9 +105,15 @@ body {
 
 /* Success Animations */
 @keyframes successPulse {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.05); }
-  100% { transform: scale(1); }
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 .message.success {
@@ -132,7 +142,7 @@ body {
 }
 
 .message::before {
-  content: "";
+  content: '';
   position: absolute;
   top: 0;
   left: 0;
@@ -173,7 +183,7 @@ body {
 }
 
 .form-section.loading::after {
-  content: "";
+  content: '';
   position: absolute;
   top: 0;
   left: 0;
@@ -231,8 +241,12 @@ body {
 }
 
 @keyframes herbal-pattern {
-  0% { transform: translate(-50%, -50%) rotate(0deg); }
-  100% { transform: translate(-50%, -50%) rotate(360deg); }
+  0% {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  100% {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
 }
 
 .header h1 {
@@ -399,66 +413,66 @@ body {
   .app-container {
     padding: 10px;
   }
-  
+
   .content {
     padding: 15px;
   }
-  
+
   .header h1 {
     font-size: 2rem;
   }
-  
+
   .header p {
     font-size: 14px;
   }
-  
+
   .form-grid {
     grid-template-columns: 1fr;
     gap: 15px;
   }
-  
+
   .nav-section {
     flex-direction: column;
     align-items: center;
     gap: 10px;
   }
-  
+
   .nav-section .modern-button {
     width: 100%;
     max-width: 200px;
   }
-  
+
   /* Mobile QR Scanner optimizations */
   .qr-section {
     padding: 15px;
   }
-  
+
   .qr-code-container {
     max-width: 90vw;
     margin: 0 auto;
   }
-  
+
   .qr-code-container img {
     max-width: 100%;
     height: auto;
   }
-  
+
   /* Mobile-specific touch targets */
   .modern-button {
     min-height: 44px; /* Apple's recommended touch target size */
     font-size: 16px; /* Prevent zoom on iOS */
   }
-  
+
   /* Mobile form improvements */
   .form-section {
     padding: 20px 15px;
   }
-  
+
   .info-grid {
     grid-template-columns: 1fr;
     gap: 15px;
   }
-  
+
   /* Camera permission messaging */
   .camera-help {
     background: #e8f5e8;
@@ -469,7 +483,7 @@ body {
     font-size: 14px;
     line-height: 1.4;
   }
-  
+
   /* Mobile error messages */
   .message {
     font-size: 14px;
@@ -483,19 +497,19 @@ body {
   .app-container {
     padding: 5px;
   }
-  
+
   .content {
     padding: 10px;
   }
-  
+
   .header h1 {
     font-size: 1.8rem;
   }
-  
+
   .form-section {
     padding: 15px 10px;
   }
-  
+
   .modern-button {
     padding: 12px 20px;
     font-size: 14px;
@@ -508,8 +522,14 @@ body {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Herb-themed icons and decorations */
@@ -533,7 +553,9 @@ body {
   border-radius: 10px;
   padding: 20px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .info-card:hover {
@@ -618,8 +640,18 @@ body {
 }
 
 /* Actor Colors */
-.actor-farmer { background-color: #28a745; }
-.actor-processor { background-color: #fd7e14; }
-.actor-distributor { background-color: #007bff; }
-.actor-retailer { background-color: #6f42c1; }
-.actor-default { background-color: #6c757d; }
+.actor-farmer {
+  background-color: #28a745;
+}
+.actor-processor {
+  background-color: #fd7e14;
+}
+.actor-distributor {
+  background-color: #007bff;
+}
+.actor-retailer {
+  background-color: #6f42c1;
+}
+.actor-default {
+  background-color: #6c757d;
+}
