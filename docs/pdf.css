@@ -1,0 +1,17 @@
+@page { margin: 18mm; }
+
+:root { --font: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+
+body { font-family: var(--font); line-height: 1.45; color: #222; }
+
+h1, h2, h3 { color: #153e1b; }
+
+h1 { page-break-before: always; }
+
+hr { border: none; height: 1px; background: #ddd; margin: 16px 0; page-break-after: always; }
+
+code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+
+ul { margin: 0 0 8px 20px; }
+
+.small { font-size: 0.9em; color: #555; }
