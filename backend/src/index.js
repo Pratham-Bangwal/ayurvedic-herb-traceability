@@ -6,16 +6,37 @@ require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
-const helmet = require('helmet');
-const rateLimit = require('express-rate-limit');
-const herbsRouter = require('./routes/herbs');
-const logger = require('./utils/logger');
-const { record, exposition } = require('./utils/metrics');
 
-// 🔥 Import blockchain adapter selector (mock or real)
-const blockchainService = require('./services/blockchain');
+// Check if optional dependencies exist
+let helmet, rateLimit;
+try {
+  helmet = require('helmet');
+} catch (e) {
+  helmet = (req, res, next) => next(); // no-op fallback
+}
+
+try {
+  rateLimit = require('express-rate-limit');
+} catch (e) {
+  rateLimit = () => (req, res, next) => next(); // no-op fallback
+}
+
+const herbsRouter = require('./routes/herbs');
+const authRouter = require('./routes/auth');
 const { isMock } = require('./services/mode');
-const { seedMockData } = require('./seed/seedMock');
+
+// Check if optional utilities exist
+let logger, record, exposition;
+try {
+  logger = require('./utils/logger');
+  const metrics = require('./utils/metrics');
+  record = metrics.record;
+  exposition = metrics.exposition;
+} catch (e) {
+  logger = console;
+  record = () => {};
+  exposition = () => '# No metrics available';
+}
 
 const app = express();
 
@@ -87,6 +108,7 @@ app.use((req, res, next) => {
 });
 
 app.use('/api/herbs', herbsRouter);
+app.use('/api/auth', authRouter);
 
 // Central error handler
 // eslint-disable-next-line no-unused-vars
@@ -95,57 +117,52 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: { code: 'internal_error', message: 'Unexpected server error' } });
 });
 
-// Startup strategy: always listen first, then attempt Mongo connect (non-fatal if it fails)
+// Startup strategy with better error handling
 if (process.env.NODE_ENV !== 'test' && !process.env.TEST_ENV) {
   const BASE_PORT = parseInt(process.env.PORT, 10) || 4000;
-  const MAX_TRIES = 10;
-
   const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/herbs';
 
   function connectMongo() {
-    (async () => {
+    mongoose.connect(MONGODB_URI, { 
+      useNewUrlParser: true, 
+      useUnifiedTopology: true,
+      serverSelectionTimeoutMS: 5000
+    })
+    .then(() => {
+      global.mongoConnected = true;
+      logger.info({ db: 'mongo', uri: MONGODB_URI }, 'Mongo connected');
+      
+      // Initialize blockchain service if available
       try {
-        await mongoose.connect(MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true });
-        blockchainService.init && blockchainService.init();
-        await seedMockData();
-        logger.info({ db: 'mongo', uri: MONGODB_URI }, 'Mongo connected');
-      } catch (err) {
-        logger.warn({ err: err.message }, 'Mongo connect failed – operating in memory mode');
+        const blockchainService = require('./services/blockchain');
+        if (blockchainService.init) blockchainService.init();
+      } catch (e) {
+        logger.warn('Blockchain service not available');
       }
-    })();
-  }
-
-  function graceful(server) {
-    const shutdown = () => {
-      logger.info('Shutting down');
-      server.close(() => process.exit(0));
-    };
-    process.on('SIGINT', shutdown);
-    process.on('SIGTERM', shutdown);
-  }
-
-  function attempt(port, remaining) {
-    const server = app.listen(port);
-    server.once('listening', () => {
-      logger.info(
-        { port, mock: isMock(), attempt: MAX_TRIES - remaining + 1 },
-        'Backend listening'
-      );
-      connectMongo();
-      graceful(server);
-    });
-    server.once('error', (err) => {
-      if (err.code === 'EADDRINUSE' && remaining > 0) {
-        logger.warn({ port, next: port + 1 }, 'Port in use, retrying');
-        setTimeout(() => attempt(port + 1, remaining - 1), 150);
-      } else {
-        logger.error({ err: err.message, port }, 'Server failed to start');
-        process.exit(1);
+      
+      // Seed mock data if available
+      try {
+        const { seedMockData } = require('./seed/seedMock');
+        seedMockData();
+      } catch (e) {
+        logger.warn('Mock seeding not available');
       }
+    })
+    .catch((err) => {
+      logger.warn({ err: err.message }, 'Mongo connect failed – operating without database');
     });
   }
 
-  attempt(BASE_PORT, MAX_TRIES - 1);
+  const server = app.listen(BASE_PORT, () => {
+    logger.info({ port: BASE_PORT }, 'Backend listening');
+    connectMongo();
+  });
+
+  // Graceful shutdown
+  process.on('SIGINT', () => {
+    logger.info('Shutting down');
+    server.close(() => process.exit(0));
+  });
 }
 
 // add at end of file

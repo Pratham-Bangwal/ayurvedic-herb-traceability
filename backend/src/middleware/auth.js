@@ -3,7 +3,7 @@
 // Role header: X-Role (farmer|processor|manufacturer|consumer)
 
 const jwt = require('jsonwebtoken');
-const allowedRoles = ['farmer', 'processor', 'manufacturer', 'consumer'];
+const allowedRoles = ['admin', 'farmer', 'processor', 'manufacturer', 'consumer'];
 
 function extractJwt(req) {
   const auth = req.header('Authorization');
@@ -80,4 +80,15 @@ function authRequired(req, res, next) {
   next();
 }
 
-module.exports = { authOptional, authRequired };
+function requireRole() {
+  const roles = Array.from(arguments);
+  return (req, res, next) => {
+    const role = req.user?.role;
+    if (!role || (roles.length && !roles.includes(role))) {
+      return res.status(403).json({ error: { code: 'forbidden', message: 'Insufficient role' } });
+    }
+    next();
+  };
+}
+
+module.exports = { authOptional, authRequired, requireRole };

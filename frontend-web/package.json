@@ -2,21 +2,19 @@
   "name": "frontend-web",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "start": "vite",
-    "lint": "eslint \"src/**/*.{js,jsx}\" || exit 0"
-  ,
-  "format": "prettier --write \"src/**/*.{js,jsx}\"",
-  "format:check": "prettier --check \"src/**/*.{js,jsx}\""
+    "preview": "vite preview"
   },
   "dependencies": {
+    "@zxing/browser": "^0.1.5",
+    "@zxing/library": "^0.21.3",
     "axios": "^1.5.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-qr-barcode-scanner": "^2.1.8",
-    "react-router-dom": "^6.30.1"
+    "react-router-dom": "^6.8.0"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.7.0",
@@ -26,6 +24,6 @@
     "eslint-plugin-react": "^7.34.3",
     "eslint-plugin-react-hooks": "^4.6.2",
     "prettier": "^3.3.3",
-    "vite": "^5.4.19"
+    "vite": "^5.0.0"
   }
 }

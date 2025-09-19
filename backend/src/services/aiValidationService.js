@@ -1,28 +1,31 @@
-// Placeholder AI validation: assigns confidence.
-// When MOCK_MODE=true produces deterministic pseudo confidence based on hash of inputs.
-const crypto = require('crypto');
-const { isMock } = require('./mode');
+/**
+ * AI Image Validation Service (Stub)
+ * Replace with actual TensorFlow.js or ML service
+ */
 
-function deterministicConfidence(seed) {
-  const hash = crypto.createHash('sha256').update(seed).digest('hex');
-  // Map first 2 bytes to range [0.55, 0.95]
-  const raw = parseInt(hash.slice(0, 4), 16) / 0xffff; // 0..1
-  return Number((0.55 + raw * 0.4).toFixed(2));
-}
+const HERBS = ['ashwagandha', 'tulsi', 'neem', 'turmeric', 'ginger', 'brahmi'];
 
-function validateHerbImage(claimedName, fileBuffer) {
-  let confidence;
-  if (isMock()) {
-    const len = fileBuffer ? fileBuffer.length || 0 : 0;
-    confidence = deterministicConfidence(`${claimedName}|${len}`);
-  } else {
-    confidence = Number((0.5 + Math.random() * 0.5).toFixed(2));
-  }
+function validateHerbImage(expectedHerb, imageBuffer) {
+  // Mock validation logic
+  const size = imageBuffer.length;
+  const herbLower = expectedHerb.toLowerCase();
+  
+  // Simulate confidence based on herb name and image size
+  let confidence = 0.5;
+  if (HERBS.includes(herbLower)) confidence += 0.2;
+  if (size > 10000) confidence += 0.1;
+  if (size < 100000) confidence += 0.1;
+  
+  // Add some randomness
+  confidence += (Math.random() - 0.5) * 0.2;
+  confidence = Math.max(0.1, Math.min(0.99, confidence));
+  
   return {
-    predictedName: claimedName,
-    confidence,
-    model: isMock() ? 'demo-cnn-mock' : 'demo-cnn-v0',
-    validatedAt: new Date(),
+    confidence: parseFloat(confidence.toFixed(2)),
+    label: expectedHerb,
+    detected: confidence > 0.7,
+    mock: true,
+    message: confidence > 0.7 ? 'High confidence match' : 'Low confidence - manual review recommended'
   };
 }
 

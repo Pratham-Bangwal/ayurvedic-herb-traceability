@@ -11,11 +11,20 @@ WORKDIR /usr/src/app
 # Copy only built deps from first stage
 COPY --from=deps /usr/src/app/node_modules ./node_modules
 
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies (use npm install instead of npm ci for development)
+RUN npm install
+
 # Copy source code
 COPY . .
+
+# Create uploads directory
+RUN mkdir -p uploads
 
 # Expose port
 EXPOSE 4000
 
-# Start app
-CMD ["npm", "start"]
+# Start application
+CMD ["node", "src/index.js"]

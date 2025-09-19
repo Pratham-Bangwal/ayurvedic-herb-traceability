@@ -1,0 +1,53 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Start stack fresh",
+			"type": "shell",
+			"command": "docker compose up -d --build",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "Restart backend to load JWT auth",
+			"type": "shell",
+			"command": "docker compose restart backend",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "Restart backend after route guard change",
+			"type": "shell",
+			"command": "docker compose restart backend",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "Restart web to pick up frontend changes",
+			"type": "shell",
+			"command": "docker compose restart web",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "Restart frontend after button visibility fix",
+			"type": "shell",
+			"command": "docker compose restart web",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "Restart frontend to show admin button",
+			"type": "shell",
+			"command": "docker compose restart web",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		}
+	]
+}

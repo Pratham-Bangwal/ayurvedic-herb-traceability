@@ -1,60 +1,60 @@
 // backend/src/services/ipfsService.js
 const axios = require('axios');
 const crypto = require('crypto');
-const FormData = require('form-data'); // ✅ use Node's form-data package
-const stream = require('stream');
 
 const PINATA_API_KEY = process.env.PINATA_API_KEY;
-const PINATA_SECRET_API_KEY = process.env.PINATA_SECRET_API_KEY;
-const { isMock } = require('./mode');
-const logger = require('../utils/logger');
+const PINATA_SECRET = process.env.PINATA_SECRET_API_KEY;
 
-let __lastPinataWarn = 0;
-function maybeWarnPinata(message) {
-  const now = Date.now();
-  if (now - __lastPinataWarn > 10_000) {
-    // throttle every 10s
-    __lastPinataWarn = now;
-    logger.warn(message);
-  }
+function mockCid(data) {
+  const hash = crypto.createHash('sha256').update(JSON.stringify(data)).digest('hex');
+  return `Qm${hash.slice(0, 44)}`;
 }
 
-async function addFileBuffer(buffer, fileName = 'herb.jpg') {
-  if (isMock() || !PINATA_API_KEY || !PINATA_SECRET_API_KEY) {
-    maybeWarnPinata('Pinata keys missing or mock mode – using demo CID');
-    const cid = 'demo-' + crypto.createHash('sha256').update(buffer).digest('hex').slice(0, 32);
-    return { cid };
+async function addFileBuffer(buffer) {
+  if (!PINATA_API_KEY) {
+    return { cid: mockCid(buffer), mock: true };
   }
+  
   try {
     const formData = new FormData();
-
-    // ✅ wrap buffer as a stream so FormData accepts it
-    const readStream = new stream.PassThrough();
-    readStream.end(buffer);
-
-    formData.append('file', readStream, { filename: fileName });
-
-    const res = await axios.post('https://api.pinata.cloud/pinning/pinFileToIPFS', formData, {
-      maxBodyLength: 'Infinity',
+    formData.append('file', new Blob([buffer]));
+    
+    const response = await axios.post('https://api.pinata.cloud/pinning/pinFileToIPFS', formData, {
       headers: {
-        ...formData.getHeaders(),
-        pinata_api_key: PINATA_API_KEY,
-        pinata_secret_api_key: PINATA_SECRET_API_KEY,
+        'pinata_api_key': PINATA_API_KEY,
+        'pinata_secret_api_key': PINATA_SECRET,
       },
     });
-
-    return { cid: res.data.IpfsHash };
-  } catch (err) {
-    logger.error(
-      { err: err.response?.data || err.message },
-      'Pinata file upload failed, using demo CID'
-    );
-    const cid = 'demo-' + crypto.createHash('sha256').update(buffer).digest('hex').slice(0, 32);
-    return { cid };
+    
+    return { cid: response.data.IpfsHash };
+  } catch (error) {
+    console.warn('IPFS upload failed, using mock:', error.message);
+    return { cid: mockCid(buffer), mock: true };
   }
 }
 
-async function addJSON(obj) {
+async function addJSON(data) {
+  if (!PINATA_API_KEY) {
+    return { cid: mockCid(data), mock: true };
+  }
+  
+  try {
+    const response = await axios.post('https://api.pinata.cloud/pinning/pinJSONToIPFS', data, {
+      headers: {
+        'pinata_api_key': PINATA_API_KEY,
+        'pinata_secret_api_key': PINATA_SECRET,
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    return { cid: response.data.IpfsHash };
+  } catch (error) {
+    console.warn('IPFS JSON upload failed, using mock:', error.message);
+    return { cid: mockCid(data), mock: true };
+  }
+}
+
+module.exports = { addFileBuffer, addJSON };
   if (isMock() || !PINATA_API_KEY || !PINATA_SECRET_API_KEY) {
     maybeWarnPinata('Pinata keys missing or mock mode – using demo CID');
     const cid =
@@ -81,6 +81,6 @@ async function addJSON(obj) {
       'demo-' + crypto.createHash('sha256').update(JSON.stringify(obj)).digest('hex').slice(0, 32);
     return { cid };
   }
-}
+
 
 module.exports = { addFileBuffer, addJSON };

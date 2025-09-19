@@ -1,45 +1,43 @@
 ﻿const mongoose = require('mongoose');
-const Schema = mongoose.Schema;
 
-const GeoSchema = new Schema({
+const geoSchema = new mongoose.Schema({
   type: { type: String, enum: ['Point'], default: 'Point' },
-  coordinates: { type: [Number], default: [0, 0] },
+  coordinates: { type: [Number], default: [0, 0] }
 });
 
-const EventSchema = new Schema(
-  {
-    actor: String,
-    data: String,
-    timestamp: { type: Date, default: Date.now },
-  },
-  { _id: false }
-);
+const eventSchema = new mongoose.Schema({
+  timestamp: { type: Date, default: Date.now },
+  actor: String,
+  data: String
+}, { _id: false });
 
-const TransferSchema = new Schema(
-  {
-    to: String,
-    timestamp: { type: Date, default: Date.now },
-  },
-  { _id: false }
-);
+const transferSchema = new mongoose.Schema({
+  to: String,
+  timestamp: { type: Date, default: Date.now }
+}, { _id: false });
 
-const HerbSchema = new Schema({
+const herbSchema = new mongoose.Schema({
   batchId: { type: String, required: true, unique: true },
-  name: String,
+  name: { type: String, required: true },
+  herbName: String, // Specific herb name (e.g., Turmeric, Ashwagandha)
   farmerName: String,
-  geo: GeoSchema,
-  metadataURI: String,
-  ipfsHash: String,
+  plantingDate: Date,
+  harvestDate: Date,
+  quantity: Number,
+  unit: { type: String, default: 'kg' },
+  farmLocation: String, // Human-readable location
+  organicCertified: { type: Boolean, default: false },
+  notes: String,
+  geo: geoSchema,
   photoIpfsCid: String,
-  processingEvents: [EventSchema],
-  ownershipTransfers: [TransferSchema], // ✅ new field
+  processingEvents: [eventSchema],
+  ownershipTransfers: [transferSchema],
   aiValidation: {
     confidence: Number,
-    model: String,
-    validatedAt: Date,
+    label: String,
+    mock: Boolean
   },
-  chain: Object,
-  createdAt: { type: Date, default: Date.now },
+  createdAt: { type: Date, default: Date.now }
 });
 
-module.exports = mongoose.model('Herb', HerbSchema);
+module.exports = mongoose.model('Herb', herbSchema);

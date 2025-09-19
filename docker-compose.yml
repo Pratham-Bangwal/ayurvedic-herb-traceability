@@ -7,10 +7,12 @@
     volumes:
       - mongo_data:/data/db
     healthcheck:
-      test: ["CMD", "mongosh", "localhost:27017/herbs", "--quiet", "--eval", "db.runCommand({ ping: 1 }).ok"]
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.runCommand({ ping: 1 }).ok"]
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - herb-network
 
   blockchain:
     image: trufflesuite/ganache:v7.9.2
@@ -21,46 +23,62 @@
       --mnemonic "candy maple cake sugar pudding cream honey rich smooth crumble sweet treat"
     ports:
       - "8545:8545"
-
-
+    networks:
+      - herb-network
 
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: backend
-    env_file:
-      - ./backend/.env
     environment:
-      - MONGODB_URI=${MONGODB_URI:-mongodb://mongo:27017/herbs}
+      - MONGODB_URI=mongodb://mongo:27017/herbs
       - PORT=4000
+      - MOCK_MODE=true
+      - MOCK_SEED=false
+      - FRONTEND_BASE_URL=http://192.168.152.102:5173
+      - CORS_ORIGINS=http://192.168.152.102:5173,http://localhost:5173
+      - JWT_SECRET=dev_secret_change_me
+      - ADMIN_USERNAME=admin
+      - ADMIN_PASSWORD=admin123
     depends_on:
-      - mongo
-      - blockchain
+      mongo:
+        condition: service_healthy
+      blockchain:
+        condition: service_started
     ports:
       - "4000:4000"
     volumes:
       - ./backend:/usr/src/app
       - /usr/src/app/node_modules
+    networks:
+      - herb-network
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:4000/healthz || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 12
 
-  frontend:
+  web:
     build:
       context: ./frontend-web
       dockerfile: Dockerfile
     container_name: frontend
     environment:
-      - VITE_API_URL=http://backend:4000
+      - VITE_API_URL=http://192.168.152.102:4000
     ports:
-      - "3000:80"
+      - "5173:5173"
     depends_on:
       - backend
     volumes:
-      - ./frontend-web:/usr/src/app:cached
+      - ./frontend-web:/usr/src/app
+      - /usr/src/app/node_modules
+    networks:
+      - herb-network
 
 volumes:
   mongo_data:
+
+networks:
+  herb-network:
+     driver: bridge

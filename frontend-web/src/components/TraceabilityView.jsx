@@ -25,7 +25,7 @@ export default function TraceabilityView({ batchId }) {
   }
 
   useEffect(() => {
-    load(); // eslint-disable-next-line react-hooks/exhaustive-deps
+    load();
   }, [batchId]);
 
   async function submitEvent(e) {
@@ -62,211 +62,325 @@ export default function TraceabilityView({ batchId }) {
     }
   }
 
-  if (loading) return <p>Loading trace...</p>;
-  if (error) return <p style={{ color: 'red' }}>Error: {error}</p>;
-  if (!trace) return <p>No trace data found.</p>;
+  if (loading) {
+    return (
+      <div className="form-section" style={{ textAlign: 'center' }}>
+        <div style={{ fontSize: '48px', marginBottom: '20px' }}>⏳</div>
+        <h3 style={{ color: '#2c5530' }}>Loading traceability data...</h3>
+        <p style={{ color: '#666' }}>Fetching complete herb journey details</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="message error fade-in">
+        <span style={{ fontSize: '20px', marginRight: '10px' }}>❌</span>
+        Failed to load trace data: {error}
+      </div>
+    );
+  }
+
+  if (!trace) {
+    return (
+      <div className="message error fade-in">
+        <span style={{ fontSize: '20px', marginRight: '10px' }}>🚫</span>
+        No trace data found for batch {batchId}
+      </div>
+    );
+  }
 
   const [lng, lat] = trace.geo?.coordinates || [];
 
+  const getActorColorClass = (actor) => {
+    const actorLower = actor.toLowerCase();
+    if (actorLower.includes('farmer')) return 'actor-farmer';
+    if (actorLower.includes('processor')) return 'actor-processor';
+    if (actorLower.includes('distributor')) return 'actor-distributor';
+    if (actorLower.includes('retailer')) return 'actor-retailer';
+    return 'actor-default';
+  };
+
   return (
-    <div style={{ maxWidth: '600px', margin: '20px auto', fontFamily: 'Arial' }}>
-      <h2>Herb Batch Trace</h2>
-
-      <div style={cardStyle}>
-        <b>Batch ID:</b> {trace.batchId}
-      </div>
-      <div style={cardStyle}>
-        <b>Farmer:</b> {trace.farmerName}
-      </div>
-      <div style={cardStyle}>
-        <b>Created At:</b> {new Date(trace.createdAt).toLocaleString()}
-      </div>
-
-      <div style={cardStyle}>
-        <b>Geo Location:</b>
-        {lat && lng ? (
-          <img
-            alt="Map"
-            src={`https://static-maps.yandex.ru/1.x/?ll=${lng},${lat}&z=15&size=450,300&l=map&pt=${lng},${lat},pm2rdm`}
-            style={{ display: 'block', marginTop: '10px', borderRadius: '6px' }}
-          />
-        ) : (
-          <p>No location available</p>
-        )}
-      </div>
-
-      {trace.photoIpfsCid && (
-        <div style={cardStyle}>
-          <b>Photo:</b>
-          <img
-            alt="Herb"
-            src={`https://ipfs.io/ipfs/${trace.photoIpfsCid}`}
-            style={{ maxWidth: '100%', marginTop: '10px', borderRadius: '6px' }}
-          />
+    <div className="fade-in">
+      {/* Basic Info Section */}
+      <div className="form-section">
+        <h2 className="form-title">
+          <span className="herb-icon">📋</span>
+          Batch Information
+        </h2>
+        
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
+          <div className="info-card">
+            <div className="info-label">Batch ID</div>
+            <div className="info-value">{trace.batchId}</div>
+          </div>
+          
+          <div className="info-card">
+            <div className="info-label">Herb Name</div>
+            <div className="info-value">{trace.herbName || trace.name || 'N/A'}</div>
+          </div>
+          
+          <div className="info-card">
+            <div className="info-label">Farmer</div>
+            <div className="info-value">{trace.farmerName}</div>
+          </div>
+          
+          <div className="info-card">
+            <div className="info-label">Farm Location</div>
+            <div className="info-value">{trace.farmLocation || 'N/A'}</div>
+          </div>
+          
+          <div className="info-card">
+            <div className="info-label">Planting Date</div>
+            <div className="info-value">
+              {trace.plantingDate ? new Date(trace.plantingDate).toLocaleDateString() : 'N/A'}
+            </div>
+          </div>
+          
+          <div className="info-card">
+            <div className="info-label">Harvest Date</div>
+            <div className="info-value">
+              {trace.harvestDate ? new Date(trace.harvestDate).toLocaleDateString() : 'N/A'}
+            </div>
+          </div>
+          
+          <div className="info-card">
+            <div className="info-label">Quantity</div>
+            <div className="info-value">
+              {trace.quantity ? `${trace.quantity} ${trace.unit || 'units'}` : 'N/A'}
+            </div>
+          </div>
+          
+          <div className="info-card">
+            <div className="info-label">Organic Status</div>
+            <div className="info-value">
+              {trace.organicCertified ? (
+                <span style={{ color: '#5cb85c' }}>🌱 Certified Organic</span>
+              ) : (
+                <span style={{ color: '#666' }}>📝 Conventional</span>
+              )}
+            </div>
+          </div>
+          
+          <div className="info-card">
+            <div className="info-label">Created</div>
+            <div className="info-value">
+              {trace.createdAt ? new Date(trace.createdAt).toLocaleString() : 'N/A'}
+            </div>
+          </div>
         </div>
-      )}
 
-      <div style={cardStyle}>
-        <b>Processing Events:</b>
-        {trace.processingEvents.length > 0 ? (
-          <ul style={timelineStyle}>
+        {trace.notes && (
+          <div style={{ marginTop: '20px' }}>
+            <div className="info-card">
+              <div className="info-label">📝 Additional Notes</div>
+              <div className="info-value" style={{ 
+                whiteSpace: 'pre-wrap', 
+                lineHeight: '1.5',
+                color: '#555' 
+              }}>
+                {trace.notes}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {lat && lng && (
+          <div style={{ marginTop: '20px' }}>
+            <div className="info-card" style={{ textAlign: 'center' }}>
+              <div className="info-label">📍 Farm Location</div>
+              <div className="info-value" style={{ marginBottom: '15px' }}>
+                Lat: {lat.toFixed(4)}, Lng: {lng.toFixed(4)}
+              </div>
+              <img
+                alt="Farm Location Map"
+                src={`https://static-maps.yandex.ru/1.x/?ll=${lng},${lat}&z=15&size=450,300&l=map&pt=${lng},${lat},pm2rdm`}
+                style={{ 
+                  maxWidth: '100%', 
+                  borderRadius: '10px',
+                  boxShadow: '0 5px 15px rgba(0, 0, 0, 0.1)'
+                }}
+              />
+            </div>
+          </div>
+        )}
+
+        {trace.photoIpfsCid && (
+          <div style={{ marginTop: '20px' }}>
+            <div className="info-card" style={{ textAlign: 'center' }}>
+              <div className="info-label">📸 Herb Photo</div>
+              <img
+                alt="Herb"
+                src={`https://ipfs.io/ipfs/${trace.photoIpfsCid}`}
+                style={{ 
+                  maxWidth: '100%', 
+                  maxHeight: '300px',
+                  borderRadius: '10px',
+                  boxShadow: '0 5px 15px rgba(0, 0, 0, 0.1)',
+                  marginTop: '15px'
+                }}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Processing Events Section */}
+      <div className="form-section">
+        <h2 className="form-title">
+          <span className="herb-icon">⚙️</span>
+          Processing History
+        </h2>
+        
+        {trace.processingEvents && trace.processingEvents.length > 0 ? (
+          <ul className="timeline">
             {trace.processingEvents.map((ev, i) => (
-              <li key={i} style={timelineItemStyle}>
-                <span
-                  style={{
-                    ...dotStyle,
-                    backgroundColor: getActorColor(ev.actor),
-                  }}
-                />
-                <b>{ev.actor}</b>: {ev.data || '—'}{' '}
-                <i>({new Date(ev.timestamp).toLocaleString()})</i>
-                {ev.chain && (
-                  <div style={{ fontSize: '11px', marginTop: '4px', opacity: 0.8 }}>
-                    tx: {truncate(ev.chain.txHash)} • blk: {ev.chain.blockNumber || '—'} •{' '}
-                    {ev.chain.action || 'EVENT'}
+              <li key={i} className="timeline-item">
+                <span className={`timeline-dot ${getActorColorClass(ev.actor)}`} />
+                <div className="timeline-content">
+                  <div className="timeline-actor">{ev.actor}</div>
+                  <div className="timeline-data">{ev.data}</div>
+                  <div className="timeline-time">
+                    {ev.timestamp ? new Date(ev.timestamp).toLocaleString() : 'N/A'}
                   </div>
-                )}
+                </div>
               </li>
             ))}
           </ul>
         ) : (
-          <p>No events recorded yet.</p>
+          <div style={{ textAlign: 'center', color: '#666', padding: '40px' }}>
+            <div style={{ fontSize: '48px', marginBottom: '15px' }}>📝</div>
+            <p>No processing events recorded yet</p>
+          </div>
         )}
-        <form
-          onSubmit={submitEvent}
-          style={{ marginTop: '10px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}
-        >
-          <input
-            placeholder="Actor (e.g., Manufacturer)"
-            value={eventForm.actor}
-            required
-            onChange={(e) => setEventForm({ ...eventForm, actor: e.target.value })}
-            style={inputSm}
-          />
-          <input
-            placeholder="Description"
-            value={eventForm.data}
-            onChange={(e) => setEventForm({ ...eventForm, data: e.target.value })}
-            style={inputLg}
-          />
-          <button disabled={submitting} style={btnSm}>
-            {submitting ? '...' : 'Add'}
-          </button>
-        </form>
       </div>
 
-      <div style={cardStyle}>
-        <b>Ownership Transfers:</b>
+      {/* Ownership Transfers Section */}
+      <div className="form-section">
+        <h2 className="form-title">
+          <span className="herb-icon">🔄</span>
+          Ownership History
+        </h2>
+        
         {trace.ownershipTransfers && trace.ownershipTransfers.length > 0 ? (
-          <ul style={timelineStyle}>
-            {trace.ownershipTransfers.map((tr, i) => (
-              <li key={i} style={timelineItemStyle}>
-                <span
-                  style={{
-                    ...dotStyle,
-                    backgroundColor: '#f39c12', // orange for transfers
-                  }}
-                />
-                <b>New Owner:</b> {tr.to} <i>({new Date(tr.timestamp).toLocaleString()})</i>
-                {tr.by && <span style={{ marginLeft: '6px', fontSize: '12px' }}>by {tr.by}</span>}
-                {tr.chain && (
-                  <div style={{ fontSize: '11px', marginTop: '4px', opacity: 0.8 }}>
-                    tx: {truncate(tr.chain.txHash)} • blk: {tr.chain.blockNumber || '—'} •{' '}
-                    {tr.chain.action || 'TRANSFER'}
+          <ul className="timeline">
+            {trace.ownershipTransfers.map((transfer, i) => (
+              <li key={i} className="timeline-item">
+                <span className="timeline-dot actor-default" />
+                <div className="timeline-content">
+                  <div className="timeline-actor">Transferred to: {transfer.to}</div>
+                  <div className="timeline-data">Ownership change recorded</div>
+                  <div className="timeline-time">
+                    {transfer.timestamp ? new Date(transfer.timestamp).toLocaleString() : 'N/A'}
                   </div>
-                )}
+                </div>
               </li>
             ))}
           </ul>
         ) : (
-          <p>No ownership transfers yet.</p>
+          <div style={{ textAlign: 'center', color: '#666', padding: '40px' }}>
+            <div style={{ fontSize: '48px', marginBottom: '15px' }}>👤</div>
+            <p>No ownership transfers recorded</p>
+          </div>
         )}
-        <form
-          onSubmit={submitTransfer}
-          style={{ marginTop: '10px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}
-        >
-          <input
-            placeholder="New Owner Address / ID"
-            value={transferForm.newOwner}
-            required
-            onChange={(e) => setTransferForm({ ...transferForm, newOwner: e.target.value })}
-            style={inputLg}
-          />
-          <button disabled={submitting} style={btnSm}>
-            {submitting ? '...' : 'Transfer'}
+      </div>
+
+      {/* Action Forms Section */}
+      <div className="form-section">
+        <h2 className="form-title">
+          <span className="herb-icon">➕</span>
+          Add New Event
+        </h2>
+        
+        <form onSubmit={submitEvent}>
+          <div className="form-grid">
+            <div className="input-group">
+              <label className="input-label">Actor/Role</label>
+              <input
+                className="modern-input"
+                placeholder="e.g., Processor, Distributor"
+                value={eventForm.actor}
+                onChange={(e) => setEventForm({ ...eventForm, actor: e.target.value })}
+                required
+              />
+            </div>
+            
+            <div className="input-group">
+              <label className="input-label">Event Description</label>
+              <input
+                className="modern-input"
+                placeholder="e.g., Dried and packaged"
+                value={eventForm.data}
+                onChange={(e) => setEventForm({ ...eventForm, data: e.target.value })}
+                required
+              />
+            </div>
+          </div>
+          
+          <button 
+            type="submit" 
+            className="modern-button"
+            disabled={submitting}
+          >
+            {submitting ? (
+              <>
+                <span>⏳</span>
+                Adding Event...
+              </>
+            ) : (
+              <>
+                <span>✅</span>
+                Add Processing Event
+              </>
+            )}
           </button>
         </form>
+
+        <div className="divider" style={{ margin: '20px 0' }}></div>
+
+        <h3 className="form-title" style={{ fontSize: '1.2rem' }}>
+          <span className="herb-icon">🔄</span>
+          Transfer Ownership
+        </h3>
+        
+        <form onSubmit={submitTransfer}>
+          <div className="input-group">
+            <label className="input-label">New Owner</label>
+            <input
+              className="modern-input"
+              placeholder="Enter new owner name/ID"
+              value={transferForm.newOwner}
+              onChange={(e) => setTransferForm({ ...transferForm, newOwner: e.target.value })}
+              required
+            />
+          </div>
+          
+          <button 
+            type="submit" 
+            className="modern-button secondary"
+            disabled={submitting}
+          >
+            {submitting ? (
+              <>
+                <span>⏳</span>
+                Transferring...
+              </>
+            ) : (
+              <>
+                <span>🔄</span>
+                Transfer Ownership
+              </>
+            )}
+          </button>
+        </form>
+
+        {actionMsg && (
+          <div className={`message ${actionMsg.includes('✅') ? 'success' : 'error'} fade-in`} style={{ marginTop: '20px' }}>
+            {actionMsg}
+          </div>
+        )}
       </div>
-      {actionMsg && <p style={{ marginTop: '10px' }}>{actionMsg}</p>}
     </div>
   );
 }
-
-// --- Styling ---
-const cardStyle = {
-  background: '#f9f9f9',
-  padding: '15px',
-  margin: '10px 0',
-  borderRadius: '6px',
-  boxShadow: '0 2px 6px rgba(0,0,0,0.1)',
-};
-
-const timelineStyle = {
-  listStyle: 'none',
-  padding: 0,
-  margin: '10px 0',
-  position: 'relative',
-};
-
-const timelineItemStyle = {
-  position: 'relative',
-  marginBottom: '20px',
-  paddingLeft: '20px',
-  borderLeft: '3px solid #2c3e50',
-};
-
-const dotStyle = {
-  width: '12px',
-  height: '12px',
-  borderRadius: '50%',
-  position: 'absolute',
-  left: '-7px',
-  top: '5px',
-};
-
-// --- Color coding by actor ---
-function getActorColor(actor = '') {
-  actor = actor.toLowerCase();
-  if (actor.includes('farmer')) return '#27ae60'; // Green
-  if (actor.includes('transporter')) return '#2980b9'; // Blue
-  if (actor.includes('retailer')) return '#e67e22'; // Orange
-  if (actor.includes('manufacturer')) return '#8e44ad'; // Purple
-  return '#2c3e50'; // Default dark grey
-}
-
-function truncate(v = '', size = 10) {
-  if (!v) return '';
-  return v.length > size ? v.slice(0, size) + '…' : v;
-}
-
-// Small form styles
-const inputSm = {
-  padding: '6px',
-  flex: '1 1 140px',
-  border: '1px solid #ccc',
-  borderRadius: '4px',
-};
-const inputLg = {
-  padding: '6px',
-  flex: '2 1 220px',
-  border: '1px solid #ccc',
-  borderRadius: '4px',
-};
-const btnSm = {
-  padding: '6px 12px',
-  background: '#2c3e50',
-  color: '#fff',
-  border: 'none',
-  borderRadius: '4px',
-  cursor: 'pointer',
-};

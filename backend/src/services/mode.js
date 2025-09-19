@@ -1,9 +1,17 @@
-// Purpose: Central helper to determine MOCK mode
-// Usage: const { isMock } = require('./mode');
-// Notes: MOCK_MODE true triggers mock adapters & seeding
+/**
+ * Environment mode detection
+ */
 
 function isMock() {
-  return String(process.env.MOCK_MODE || '').toLowerCase() === 'true';
+  return process.env.MOCK_MODE === 'true' || process.env.NODE_ENV === 'test';
 }
 
-module.exports = { isMock };
+function isDev() {
+  return process.env.NODE_ENV === 'development';
+}
+
+function isProd() {
+  return process.env.NODE_ENV === 'production';
+}
+
+module.exports = { isMock, isDev, isProd };
