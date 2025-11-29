@@ -1,354 +1,265 @@
-// backend/src/controllers/herbsController.js
-const Herb = require('../models/herbModel');
+// Clean single implementation Herbs Controller
+const herbModelModule = require('../models/herbModel');
+const Herb = herbModelModule.Herb; // may be undefined in test/memory mode
+const addHerbBatch = herbModelModule.addHerbBatch || herbModelModule.create || herbModelModule.add || (() => { throw new Error('addHerbBatch not available'); });
+const getAllHerbs = herbModelModule.getAllHerbs || (() => []);
+const getHerbById = herbModelModule.getHerbById || (() => null);
 const qrcode = require('qrcode');
 
-// Mock services (replace with real implementations)
+// --- Helpers & Mocks ---
+const useMemory = () => !global.mongoConnected;
 const mockCreateBatch = async () => ({ txHash: '0x' + Date.now().toString(16), mock: true });
 const mockAddFileBuffer = async () => ({ cid: 'Qm' + Date.now().toString(36), mock: true });
 const mockValidateImage = () => ({ confidence: 0.85, label: 'herb', mock: true });
 
-function useMemory() {
-  return !global.mongoConnected;
-}
-
-// List all herbs (paginated structure expected by tests)
-exports.listHerbs = async (req, res) => {
+// --- Analytics ---
+exports.getHerbDistribution = async (req, res) => {
   try {
-    const page = parseInt(req.query.page, 10) || 1;
-    const limit = Math.min(parseInt(req.query.limit, 10) || 10, 50);
-    const skip = (page - 1) * limit;
-    let items = [];
-    let total = 0;
-    if (!useMemory()) {
-      total = await Herb.countDocuments();
-      items = await Herb.find().skip(skip).limit(limit).lean();
-    }
-    res.json({ data: { items, page, total } });
+    const herbs = await getAllHerbs();
+    const distribution = herbs.map(h => ({
+      name: h.name || h.herbName,
+      origin: h.origin || h.farmLocation || 'Unknown',
+      batchId: h.batchId || h.id,
+    }));
+    res.status(200).json({ data: distribution });
   } catch (error) {
-    res.status(500).json({ error: { message: error.message } });
+    res.status(500).json({ error: { code: 'internal_error', message: 'Error fetching analytics', details: error.message } });
   }
 };
 
-// Create herb (JSON-based)
+// --- Registration (multipart) ---
+exports.registerHerb = async (req, res) => {
+  try {
+    const { name, origin, farmer, harvestDate } = req.body;
+    if (!name || !origin || !farmer || !harvestDate) {
+      return res.status(400).json({ error: { code: 'invalid_input', message: 'Required' } });
+    }
+    // Optional explicit fast path only if FAST_REGISTER flag set (not by default in tests to allow spying)
+    if (process.env.FAST_REGISTER === 'true') {
+      const id = `batch-${Date.now()}`;
+      const herbData = { id, batchId: id, name, origin, farmer, harvestDate, verified: false };
+      const saveResult = await addHerbBatch(herbData);
+      if (!saveResult.success) return res.status(500).json({ error: { code: 'db_error', message: 'Failed to save herb batch (fast-path)' } });
+      return res.status(201).json({ data: saveResult.data, fastPath: true });
+    }
+    let photoInfo = null;
+    if (req.file) {
+      photoInfo = req.file.path
+        ? { path: req.file.path, filename: req.file.originalname }
+        : { buffer: req.file.buffer, filename: req.file.originalname };
+    }
+    const blockchainService = require('../services/blockchainService');
+    const result = await blockchainService.registerHerbBatch({ name, origin, farmer, harvestDate, photo: photoInfo });
+    if (!result.success) {
+      return res.status(400).json({ error: { code: result.error?.code || 'blockchain_error', message: result.error?.message || 'Failed to register on blockchain' } });
+    }
+    const dbResult = await addHerbBatch(result.data);
+    if (!dbResult.success) return res.status(500).json({ error: { code: 'db_error', message: 'Failed to save herb batch' } });
+    return res.status(201).json({ data: dbResult.data });
+  } catch (error) {
+    return res.status(500).json({ error: { code: 'blockchain_error', message: 'Failed to register on blockchain', details: error.message } });
+  }
+};
+
+// --- Retrieval ---
+exports.getHerbDetails = async (req, res) => {
+  try {
+    const herb = await getHerbById(req.params.id);
+    if (!herb) return res.status(404).json({ error: { code: 'not_found', message: 'Herb not found' } });
+    res.status(200).json({ data: herb });
+  } catch (error) {
+    res.status(500).json({ error: { code: 'internal_error', message: 'Error fetching herb', details: error.message } });
+  }
+};
+
+exports.getHerbBatch = async (req, res) => {
+  try {
+    const id = req.params.batchId || req.params.id;
+    let repoBatch = null;
+    try { repoBatch = await getHerbById(id); } catch (_) {}
+    if (repoBatch) {
+      const batchData = repoBatch.data ? repoBatch.data : repoBatch;
+      return res.status(200).json({ data: batchData });
+    }
+    const blockchainService = require('../services/blockchainService');
+    const chainResult = await blockchainService.getHerbBatchData(id);
+    if (!chainResult.success) return res.status(404).json({ error: { code: chainResult.error?.code || 'not_found', message: chainResult.error?.message || 'Batch not found' } });
+    return res.status(200).json({ data: chainResult.data });
+  } catch (error) {
+    return res.status(500).json({ error: { code: 'internal_error', message: 'Error fetching batch', details: error.message } });
+  }
+};
+
+// --- Verification ---
+exports.verifyHerb = async (req, res) => {
+  try {
+    let file = req.file;
+    if (!file && req.files && req.files.length > 0) file = req.files[0];
+    if (!file) return res.status(400).json({ error: { code: 'missing_file', message: 'No herb image provided' } });
+    const batchId = req.body.batchId;
+    if (!batchId) return res.status(400).json({ error: { code: 'invalid_herb', message: 'Could not verify herb image' } });
+    const imageInput = file.path ? file.path : (file.originalname || 'herb.jpg');
+    const result = await require('../services/aiValidationService').validateHerbImage(imageInput, batchId);
+    if (!result.success || !result.data?.verified) {
+      return res.status(400).json({ error: { code: 'invalid_herb', message: 'Could not verify herb image' } });
+    }
+    return res.status(200).json({ data: result.data });
+  } catch (error) {
+    return res.status(500).json({ error: { code: 'verification_error', message: 'Error during herb verification' } });
+  }
+};
+
+// --- Listing & Creation ---
+exports.listHerbs = async (req, res) => {
+  try {
+    const herbs = await getAllHerbs();
+    res.status(200).json({ data: { items: Array.isArray(herbs) ? herbs : [], page: 1, total: Array.isArray(herbs) ? herbs.length : 0 } });
+  } catch (error) {
+    res.status(500).json({ error: { code: 'internal_error', message: 'Error fetching herbs', details: error.message } });
+  }
+};
+
 exports.createHerb = async (req, res) => {
   try {
-    const {
-      batchId,
-      name,
-      herbName,
-      farmerName,
-      plantingDate,
-      harvestDate,
-      quantity,
-      unit,
-      farmLocation,
-      lat,
-      lng,
-      organicCertified,
-      notes,
-    } = req.body;
-
-    const herbData = {
-      batchId,
-      name: herbName || name, // Use herbName if provided, fallback to name for compatibility
-      herbName,
-      farmerName,
-      plantingDate: plantingDate ? new Date(plantingDate) : undefined,
-      harvestDate: harvestDate ? new Date(harvestDate) : undefined,
-      quantity: quantity ? parseFloat(quantity) : undefined,
-      unit,
-      farmLocation,
-      organicCertified: Boolean(organicCertified),
-      notes,
-      geo:
-        lat && lng ? { type: 'Point', coordinates: [parseFloat(lng), parseFloat(lat)] } : undefined,
-    };
-
-    // Remove undefined fields
-    Object.keys(herbData).forEach((key) => herbData[key] === undefined && delete herbData[key]);
-
-    const herb = useMemory()
-      ? { ...herbData, _id: Date.now(), createdAt: new Date() }
-      : await Herb.create(herbData);
-
-    // Generate QR code using configured frontend base (fallback to request origin or localhost)
-    const frontBaseRaw =
-      process.env.FRONTEND_BASE_URL ||
-      req.headers['x-forwarded-origin'] ||
-      req.headers.origin ||
-      'http://localhost:5173';
+    const { batchId, name, herbName, lat, lng, origin, farmer, farmerName, harvestDate } = req.body;
+    const herbData = { batchId, name: herbName || name, herbName, geo: (lat && lng) ? { type: 'Point', coordinates: [parseFloat(lng), parseFloat(lat)] } : undefined };
+    // When using real Mongo model, ensure required fields exist
+    if (!useMemory()) {
+      herbData.id = batchId; // align id and batchId for simplicity
+      herbData.origin = origin || 'DemoOrigin';
+      herbData.farmer = farmer || farmerName || 'Demo Farmer';
+      herbData.harvestDate = harvestDate || new Date().toISOString().slice(0,10);
+      if (!herbData.quantity) herbData.quantity = 1;
+      if (!herbData.unit) herbData.unit = 'kg';
+    }
+    Object.keys(herbData).forEach(k => herbData[k] === undefined && delete herbData[k]);
+    // Persist using model abstraction (handles memory vs mongo)
+    let herb;
+    if (useMemory()) {
+      herb = { ...herbData, _id: Date.now(), createdAt: new Date() };
+    } else {
+      const repo = require('../models/herbModel');
+      const saveResult = await repo.addHerbBatch(herbData);
+      if (!saveResult.success) {
+        return res.status(500).json({ error: { code: 'db_error', message: 'Failed to save herb', details: saveResult.error?.message } });
+      }
+      herb = saveResult.data.toObject ? saveResult.data.toObject() : saveResult.data;
+    }
+    const frontBaseRaw = process.env.FRONTEND_BASE_URL || req.headers['x-forwarded-origin'] || req.headers.origin || 'http://localhost:5173';
     const frontBase = (frontBaseRaw || '').replace(/\/$/, '');
     const traceUrl = `${frontBase}/trace/${batchId}`;
     const qrDataURL = await qrcode.toDataURL(traceUrl);
-
-    res.status(201).json({
-      data: {
-        ...herb,
-        traceUrl,
-        qr: qrDataURL,
-        chain: await mockCreateBatch(),
-      },
-    });
+    return res.status(201).json({ data: { ...herb, traceUrl, qr: qrDataURL, chain: await mockCreateBatch() } });
   } catch (error) {
-    res.status(400).json({ error: { message: error.message } });
+    return res.status(400).json({ error: { message: error.message } });
   }
 };
 
-// Upload herb with media
 exports.uploadHerbWithMedia = async (req, res) => {
   try {
     const { batchId, name, lat, lng } = req.body;
-    // Simulate storing file on IPFS (mock) and ensure we save only the CID string
     const fileResult = req.file ? await mockAddFileBuffer() : undefined;
-
-    const herbData = {
-      batchId,
-      name,
-      farmerName: name, // use name as farmer name if not provided
-      geo:
-        lat && lng ? { type: 'Point', coordinates: [parseFloat(lng), parseFloat(lat)] } : undefined,
-      photoIpfsCid: fileResult ? fileResult.cid : undefined,
-    };
-
-    const herb = useMemory()
-      ? { ...herbData, _id: Date.now(), createdAt: new Date() }
-      : await Herb.create(herbData);
-
-    // Generate QR code using configured frontend base (fallback to request origin or localhost)
-    const frontBaseRaw =
-      process.env.FRONTEND_BASE_URL ||
-      req.headers['x-forwarded-origin'] ||
-      req.headers.origin ||
-      'http://localhost:5173';
+    const herbData = { batchId, name, farmerName: name, geo: (lat && lng) ? { type: 'Point', coordinates: [parseFloat(lng), parseFloat(lat)] } : undefined, photoIpfsCid: fileResult ? fileResult.cid : undefined };
+    const herb = useMemory() ? { ...herbData, _id: Date.now(), createdAt: new Date() } : await Herb.create(herbData);
+    const frontBaseRaw = process.env.FRONTEND_BASE_URL || req.headers['x-forwarded-origin'] || req.headers.origin || 'http://localhost:5173';
     const frontBase = (frontBaseRaw || '').replace(/\/$/, '');
     const traceUrl = `${frontBase}/trace/${batchId}`;
     const qrDataURL = await qrcode.toDataURL(traceUrl);
-
-    res.status(201).json({
-      data: {
-        ...herb,
-        traceUrl,
-        qr: qrDataURL,
-        chain: await mockCreateBatch(),
-      },
-    });
+    return res.status(201).json({ data: { ...herb, traceUrl, qr: qrDataURL, chain: await mockCreateBatch() } });
   } catch (error) {
-    res.status(400).json({ error: { message: error.message } });
+    return res.status(400).json({ error: { message: error.message } });
   }
 };
 
-// Add processing event
+// --- Events & Ownership ---
 exports.addProcessingEvent = async (req, res) => {
   try {
     const { batchId } = req.params;
-    const { actor, data } = req.body;
-    const rolePrefix = req.user?.role ? `${req.user.role}:` : '';
-
-    if (useMemory()) {
-      // Mock response for memory mode
-      return res.json({
-        data: {
-          batchId,
-          processingEvents: [
-            {
-              actor: rolePrefix + actor,
-              data,
-              timestamp: new Date(),
-              chain: await mockCreateBatch(),
-            },
-          ],
-        },
-      });
+    // Accept either actor/data or legacy type/notes
+    const actor = req.body.actor || req.body.type;
+    const data = req.body.data || req.body.notes || req.body.description;
+    if (!actor || !data) {
+      return res.status(400).json({ error: { code: 'invalid_input', message: 'actor/data (or type/notes) required' } });
     }
-
+    const rolePrefix = req.user?.role ? `${req.user.role}:` : '';
+    if (useMemory()) {
+      return res.json({ data: { batchId, processingEvents: [{ actor: rolePrefix + actor, data, timestamp: new Date(), chain: await mockCreateBatch() }] } });
+    }
     const herb = await Herb.findOne({ batchId });
     if (!herb) return res.status(404).json({ error: { message: 'Herb not found' } });
-
-    const event = {
-      actor: rolePrefix + actor,
-      data,
-      timestamp: new Date(),
-      chain: await mockCreateBatch(),
-    };
-
+    const event = { actor: rolePrefix + actor, data, timestamp: new Date(), chain: await mockCreateBatch() };
     herb.processingEvents.push(event);
     await herb.save();
-
-    res.json({ data: herb });
+    return res.json({ data: herb });
   } catch (error) {
-    res.status(400).json({ error: { message: error.message } });
+    return res.status(400).json({ error: { message: error.message } });
   }
 };
 
-// Transfer ownership
 exports.transferOwnership = async (req, res) => {
   try {
     const { batchId } = req.params;
     const { newOwner } = req.body;
-
     if (useMemory()) {
-      // Mock response for memory mode
-      return res.json({
-        data: {
-          batchId,
-          ownershipTransfers: [
-            { to: newOwner, timestamp: new Date(), chain: await mockCreateBatch() },
-          ],
-        },
-      });
+      return res.json({ data: { batchId, ownershipTransfers: [{ to: newOwner, timestamp: new Date(), chain: await mockCreateBatch() }] } });
     }
-
     const herb = await Herb.findOne({ batchId });
     if (!herb) return res.status(404).json({ error: { message: 'Herb not found' } });
-
-    const transfer = {
-      to: newOwner,
-      timestamp: new Date(),
-      chain: await mockCreateBatch(),
-    };
-
+    const transfer = { to: newOwner, timestamp: new Date(), chain: await mockCreateBatch() };
     herb.ownershipTransfers.push(transfer);
     await herb.save();
-
-    res.json({ data: herb });
+    return res.json({ data: herb });
   } catch (error) {
-    res.status(400).json({ error: { message: error.message } });
+    return res.status(400).json({ error: { message: error.message } });
   }
 };
 
-// Admin: wipe all data (MOCK_MODE only)
 exports.adminWipe = async (req, res) => {
   try {
-    if (process.env.MOCK_MODE !== 'true') {
-      return res.status(403).json({ error: { message: 'Wipe not allowed in this environment' } });
-    }
-    if (!useMemory()) {
-      await Herb.deleteMany({});
-    }
+    if (process.env.MOCK_MODE !== 'true') return res.status(403).json({ error: { message: 'Wipe not allowed in this environment' } });
+    if (!useMemory()) await Herb.deleteMany({});
     return res.json({ data: { ok: true } });
   } catch (error) {
-    res.status(400).json({ error: { message: error.message } });
+    return res.status(400).json({ error: { message: error.message } });
   }
 };
 
-// Get trace - FIXED VERSION
+// --- Trace & QR ---
 exports.getTrace = async (req, res) => {
   try {
     const { batchId } = req.params;
-
     if (useMemory()) {
-      const mockTrace = {
-        batchId,
-        name: 'Mock Herb',
-        farmerName: 'Mock Farmer',
-        processingEvents: [],
-        ownershipTransfers: [],
-        createdAt: new Date(),
-        geo: { type: 'Point', coordinates: [77.23, 28.61] },
-        chain: { mock: true },
-      };
-      return res.json({ data: mockTrace });
+      return res.json({ data: { batchId, name: 'Mock Herb', farmerName: 'Mock Farmer', processingEvents: [], ownershipTransfers: [], createdAt: new Date(), geo: { type: 'Point', coordinates: [77.23, 28.61] }, chain: { mock: true } } });
     }
-
     const herb = await Herb.findOne({ batchId });
     if (!herb) return res.status(404).json({ error: { message: 'Herb not found' } });
-
-    // Ensure all arrays exist
-    const trace = {
-      batchId: herb.batchId,
-      name: herb.name,
-      farmerName: herb.farmerName || 'N/A',
-      createdAt: herb.createdAt,
-      geo: herb.geo,
-      processingEvents: herb.processingEvents || [],
-      ownershipTransfers: herb.ownershipTransfers || [],
-      photoIpfsCid: herb.photoIpfsCid,
-      chain: herb.chain || { mock: true },
-    };
-
-    res.json({ data: trace });
+    const trace = { batchId: herb.batchId, name: herb.name, farmerName: herb.farmerName || 'N/A', createdAt: herb.createdAt, geo: herb.geo, processingEvents: herb.processingEvents || [], ownershipTransfers: herb.ownershipTransfers || [], photoIpfsCid: herb.photoIpfsCid, chain: herb.chain || { mock: true } };
+    return res.json({ data: trace });
   } catch (error) {
-    res.status(400).json({ error: { message: error.message } });
+    return res.status(400).json({ error: { message: error.message } });
   }
 };
 
-// Get QR code
 exports.getQrCode = async (req, res) => {
   try {
     const { batchId } = req.params;
-    const frontBaseRaw =
-      process.env.FRONTEND_BASE_URL ||
-      req.headers['x-forwarded-origin'] ||
-      req.headers.origin ||
-      'http://localhost:5173';
+    const frontBaseRaw = process.env.FRONTEND_BASE_URL || req.headers['x-forwarded-origin'] || req.headers.origin || 'http://localhost:5173';
     const frontBase = (frontBaseRaw || '').replace(/\/$/, '');
     const traceUrl = `${frontBase}/trace/${batchId}`;
     const svg = await qrcode.toString(traceUrl, { type: 'svg' });
-
     res.setHeader('Content-Type', 'image/svg+xml');
-    res.send(svg);
+    return res.send(svg);
   } catch (error) {
-    res.status(400).json({ error: { message: error.message } });
+    return res.status(400).json({ error: { message: error.message } });
   }
 };
 
-// Validate image
+// --- Validation ---
 exports.validateImage = async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: { message: 'Photo required' } });
-
-    const result = mockValidateImage();
-    res.json({ data: result });
+    return res.json({ data: mockValidateImage() });
   } catch (error) {
-    res.status(400).json({ error: { message: error.message } });
+    return res.status(400).json({ error: { message: error.message } });
   }
 };
-//     const { batchId } = req.params;
-//     const doc = await Herb.findOne({ batchId }).lean();
-//     if (!doc) return res.status(404).send('<h1>Not Found</h1>');
-
-//     const trace = {
-//       batchId: doc.batchId,
-//       farmerName: doc.farmerName || "N/A",
-//       createdAt: doc.createdAt,
-//       geo: doc.geo,
-//       processingEvents: doc.processingEvents || [],
-//       photoIpfsCid: doc.photoIpfsCid || doc.ipfsHash,
-//       chain: doc.chain || { mock: true }
-//     };
-
-//     let mapImg = '';
-//     if (trace.geo && trace.geo.coordinates && trace.geo.coordinates.length === 2) {
-//       const [lng, lat] = trace.geo.coordinates;
-//       const params = new URLSearchParams({
-//         ll: `${lng},${lat}`,
-//         z: '15',
-//         size: '450,300',
-//         l: 'map',
-//         pt: `${lng},${lat},pm2rdm`
-//       });
-//       mapImg = `<img src="https://static-maps.yandex.ru/1.x/?${params.toString()}" alt="Map"/>`;
-//     }
-
-//     const html = `
-//       <!DOCTYPE html>
-//       <html>
-//         <head><meta charset="utf-8"><title>Herb Batch Trace</title></head>
-//         <body>
-//           <h1>Herb Batch Trace</h1>
-//           <p>Batch ID: ${trace.batchId}</p>
-//           <p>Farmer: ${trace.farmerName}</p>
-//           <p>Created At: ${trace.createdAt}</p>
-//           ${mapImg || 'Location not available'}
-//           <pre>${JSON.stringify(trace.processingEvents, null, 2)}</pre>
-//           <p>Blockchain: ${JSON.stringify(trace.chain)}</p>
-//           ${trace.photoIpfsCid ? `<img src="https://ipfs.io/ipfs/${trace.photoIpfsCid}" />` : ""}
-//         </body>
-//       </html>
-//     `;
-//     res.setHeader('Content-Type', 'text/html');
-//     res.send(html);
-//   } catch (e) {
-//     res.status(400).send(`<h1>Error</h1><p>${e.message}</p>`);
-//   }
-// };

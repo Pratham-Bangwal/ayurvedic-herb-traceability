@@ -1,33 +1,10 @@
-﻿# --- Build Stage ---
-FROM node:18 AS build
-WORKDIR /usr/src/app
-COPY package*.json ./
-RUN npm install --legacy-peer-deps
-COPY . .
-RUN npm run build
-# --- Production Stage ---
-FROM nginx:stable-alpine
-WORKDIR /usr/share/nginx/html
-# Copy dist build
-COPY --from=build /usr/src/app/dist ./
-# Copy runtime config template
-COPY config.template.js ./config.template.js
-# Startup script to inject env vars
-COPY docker-entrypoint.sh /docker-entrypoint.sh
-RUN chmod +x /docker-entrypoint.sh
-# Nginx config
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-EXPOSE 80
-ENTRYPOINT ["/docker-entrypoint.sh"]
-CMD ["nginx", "-g", "daemon off;"]
-
-FROM node:18-alpine
+﻿FROM node:18-alpine
 WORKDIR /usr/src/app
 
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies (use npm install instead of npm ci)
+# Install dependencies
 RUN npm install
 
 # Copy source code
@@ -38,3 +15,41 @@ EXPOSE 5173
 
 # Start development server
 CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+
+# Stage 1: Build the application
+FROM node:18-alpine AS build
+WORKDIR /usr/src/app
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm install
+
+# Copy source code
+COPY . .
+
+# Build the application
+RUN npm run build
+
+# Stage 2: Serve the built application
+FROM nginx:alpine
+WORKDIR /usr/share/nginx/html
+
+# Copy the built application
+COPY --from=build /usr/src/app/dist ./
+
+# Copy config template and entrypoint script
+COPY config.template.js ./config.template.js
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
+
+# Copy nginx config
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+# Expose port
+EXPOSE 80 5173
+
+# Use the entrypoint script to replace environment variables
+ENTRYPOINT ["/docker-entrypoint.sh"]
+CMD ["nginx", "-g", "daemon off;"]

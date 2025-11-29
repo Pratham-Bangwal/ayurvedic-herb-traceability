@@ -7,22 +7,20 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 
-// Check if optional dependencies exist
-let helmet, rateLimit;
+// Import security dependencies
+let helmet;
 try {
   helmet = require('helmet');
 } catch (e) {
   helmet = (req, res, next) => next(); // no-op fallback
 }
 
-try {
-  rateLimit = require('express-rate-limit');
-} catch (e) {
-  rateLimit = () => (req, res, next) => next(); // no-op fallback
-}
+// Import custom rate limiter with configurable options
+const { limiters } = require('./middleware/rateLimiter');
 
 const herbsRouter = require('./routes/herbs');
 const authRouter = require('./routes/auth');
+const analyticsRouter = require('./routes/analytics');
 const { isMock } = require('./services/mode');
 
 // Check if optional utilities exist
@@ -55,20 +53,21 @@ app.use(
   })
 );
 app.use(express.json({ limit: '1mb' }));
-// Basic rate limiting (skip in test)
+// Advanced rate limiting (skip in test)
 if (process.env.NODE_ENV !== 'test') {
-  const limiter = rateLimit({
-    windowMs: 60 * 1000,
-    max: 120, // per IP per minute
-    standardHeaders: true,
-    legacyHeaders: false,
-  });
-  app.use(limiter);
-  // Stricter limits for mutation endpoints
-  const mutateLimiter = rateLimit({ windowMs: 60 * 1000, max: 30 });
+  // Apply general API rate limit to all routes
+  app.use('/api/', limiters.api);
+  
+  // Apply strict rate limit to authentication endpoints
+  app.use('/api/auth/', limiters.auth);
+  
+  // Apply very strict rate limit to sensitive operations
+  app.use('/api/herbs/admin/wipe', limiters.sensitive);
+  
+  // Apply standard API rate limit to mutation endpoints
   app.use(
     ['/api/herbs', '/api/herbs/upload', /\/api\/herbs\/.+\/(process|events|transfer)$/],
-    mutateLimiter
+    limiters.api
   );
 }
 app.use(express.urlencoded({ extended: true }));
@@ -109,6 +108,7 @@ app.use((req, res, next) => {
 
 app.use('/api/herbs', herbsRouter);
 app.use('/api/auth', authRouter);
+app.use('/api/analytics', analyticsRouter);
 
 // Central error handler
 // eslint-disable-next-line no-unused-vars
@@ -140,6 +140,16 @@ if (process.env.NODE_ENV !== 'test' && !process.env.TEST_ENV) {
         } catch (e) {
           logger.warn('Blockchain service not available');
         }
+        
+        // Initialize authentication service
+        try {
+          const authService = require('./services/authService');
+          authService.initializeUsers()
+            .then(() => logger.info('Authentication service initialized'))
+            .catch(err => logger.error({ err }, 'Failed to initialize authentication service'));
+        } catch (e) {
+          logger.error({ err: e }, 'Authentication service initialization failed');
+        }
 
         // Seed mock data if available
         try {
@@ -166,5 +176,44 @@ if (process.env.NODE_ENV !== 'test' && !process.env.TEST_ENV) {
   });
 }
 
-// add at end of file
-module.exports = { app };
+// Helper to create and return server (for tests/E2E)
+async function createServer(port = 0) {
+  const BASE_PORT = port || parseInt(process.env.PORT, 10) || 4000;
+  const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/herbs';
+
+  // In test environment we skip establishing (or re-establishing) a Mongo connection here.
+  // Global setup already connects when needed; duplicating connects creates lingering TCP handles.
+  if (process.env.NODE_ENV !== 'test') {
+    if (!global.mongoConnected) {
+      try {
+        await mongoose.connect(MONGODB_URI, {
+          useNewUrlParser: true,
+          useUnifiedTopology: true,
+          serverSelectionTimeoutMS: 5000,
+        });
+        global.mongoConnected = true;
+      } catch (err) {
+        // Ignore DB errors in non-critical startup path
+      }
+    }
+  }
+
+  // Ensure admin user is initialized for tests
+  try {
+    const authService = require('./services/authService');
+    if (authService.initializeUsers) {
+      await authService.initializeUsers();
+    }
+  } catch (e) {
+    // Ignore errors
+  }
+
+  // Start server
+  return new Promise((resolve) => {
+    const server = app.listen(BASE_PORT, () => {
+      resolve({ app, server });
+    });
+  });
+}
+
+module.exports = { app, createServer };

@@ -1,4 +1,4 @@
 window.__RUNTIME_CONFIG__ = {
-  API_URL: "http://localhost:4000",
-  FRONTEND_BASE_URL: "http://localhost:5173"
+  API_URL: "http://10.253.11.239:4000",
+  FRONTEND_BASE_URL: "http://10.253.11.239:5173"
 };

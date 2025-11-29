@@ -1,29 +1,91 @@
 // backend/src/routes/auth.js
 const express = require('express');
-const jwt = require('jsonwebtoken');
+const { authRequired, requireRole } = require('../middleware/auth');
+const authService = require('../services/authService');
+const { limiters } = require('../middleware/rateLimiter');
 
 const router = express.Router();
 
-router.post('/login', (req, res) => {
+/**
+ * Login endpoint - authenticates user and returns JWT token
+ */
+router.post('/login', limiters.auth, async (req, res) => {
   const { username, password } = req.body || {};
-  const adminUser = process.env.ADMIN_USERNAME || 'admin';
-  const adminPass = process.env.ADMIN_PASSWORD || 'admin123';
-  const secret = process.env.JWT_SECRET;
-
-  if (!secret) {
-    return res.status(500).json({ error: { message: 'JWT not configured' } });
-  }
+  
+  // Input validation
   if (!username || !password) {
-    return res.status(400).json({ error: { message: 'username and password required' } });
+    return res.status(400).json({ 
+      error: { 
+        code: 'invalid_input',
+        message: 'Username and password are required' 
+      } 
+    });
   }
 
-  if (username === adminUser && password === adminPass) {
-    const payload = { sub: `admin:${username}`, role: 'admin', iss: 'herb-trace' };
-    const token = jwt.sign(payload, secret, { expiresIn: '8h' });
-    return res.json({ data: { token, role: 'admin' } });
+  try {
+    const result = await authService.authenticateUser(username, password);
+    
+    if (!result.success) {
+      return res.status(401).json({ error: result.error });
+    }
+    
+    return res.json({ data: result.data });
+  } catch (error) {
+    console.error('Authentication error:', error);
+    return res.status(500).json({ 
+      error: { 
+        code: 'auth_error',
+        message: 'An error occurred during authentication' 
+      } 
+    });
   }
+});
 
-  return res.status(401).json({ error: { message: 'Invalid credentials' } });
+/**
+ * Create user endpoint (admin only)
+ * Creates a new user in the system
+ */
+router.post('/users', authRequired, requireRole('admin'), async (req, res) => {
+  const { username, password, role } = req.body || {};
+  
+  // Input validation
+  if (!username || !password) {
+    return res.status(400).json({ 
+      error: { 
+        code: 'invalid_input',
+        message: 'Username and password are required' 
+      } 
+    });
+  }
+  
+  // Role validation
+  const allowedRoles = ['user', 'farmer', 'processor', 'manufacturer', 'consumer'];
+  if (role && !allowedRoles.includes(role)) {
+    return res.status(400).json({
+      error: {
+        code: 'invalid_role',
+        message: `Role must be one of: ${allowedRoles.join(', ')}`
+      }
+    });
+  }
+  
+  try {
+    const result = await authService.createUser({ username, password, role });
+    
+    if (!result.success) {
+      return res.status(400).json({ error: result.error });
+    }
+    
+    return res.status(201).json({ data: result.data });
+  } catch (error) {
+    console.error('User creation error:', error);
+    return res.status(500).json({ 
+      error: { 
+        code: 'user_creation_error',
+        message: 'An error occurred while creating the user' 
+      } 
+    });
+  }
 });
 
 module.exports = router;

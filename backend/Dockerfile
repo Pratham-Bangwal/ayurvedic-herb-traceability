@@ -26,5 +26,5 @@ RUN mkdir -p uploads
 # Expose port
 EXPOSE 4000
 
-# Start application
-CMD ["node", "src/index.js"]
+# Start application (runs verify-deps via npm start script)
+CMD ["npm", "start"]

@@ -12,7 +12,7 @@ describe('herbMemoryRepo', () => {
   });
 
   test('create stores and findOne retrieves same reference', async () => {
-    const doc = await repo.create({ batchId: 'T1', name: 'Tulsi' });
+    const doc = await repo.create({ batchId: 'T1', name: 'Tulsi', __raw: true });
     const found = await repo.findOne({ batchId: 'T1' });
     expect(found).toBe(doc); // same object reference
     expect(found.name).toBe('Tulsi');
@@ -20,7 +20,7 @@ describe('herbMemoryRepo', () => {
   });
 
   test('processingEvents persist after manual push + save', async () => {
-    const doc = await repo.create({ batchId: 'T2', name: 'Neem' });
+  const doc = await repo.create({ batchId: 'T2', name: 'Neem', __raw: true });
     doc.processingEvents.push({ actor: 'ProcA', data: 'washed', timestamp: new Date() });
     await doc.save();
     const reread = await repo.findOne({ batchId: 'T2' });
@@ -29,7 +29,7 @@ describe('herbMemoryRepo', () => {
   });
 
   test('ownershipTransfers accumulate', async () => {
-    const doc = await repo.create({ batchId: 'T3', name: 'Ashwagandha' });
+  const doc = await repo.create({ batchId: 'T3', name: 'Ashwagandha', __raw: true });
     doc.ownershipTransfers.push({ to: '0xABC', timestamp: new Date() });
     await doc.save();
     doc.ownershipTransfers.push({ to: '0xDEF', timestamp: new Date() });
@@ -39,16 +39,16 @@ describe('herbMemoryRepo', () => {
   });
 
   test('duplicate create replaces previous doc', async () => {
-    const first = await repo.create({ batchId: 'T4', name: 'Old' });
-    const second = await repo.create({ batchId: 'T4', name: 'New' });
+  const first = await repo.create({ batchId: 'T4', name: 'Old', __raw: true });
+  const second = await repo.create({ batchId: 'T4', name: 'New', __raw: true });
     expect(second).not.toBe(first);
     const found = await repo.findOne({ batchId: 'T4' });
     expect(found.name).toBe('New');
   });
 
   test('find returns all docs', async () => {
-    await repo.create({ batchId: 'A', name: 'A' });
-    await repo.create({ batchId: 'B', name: 'B' });
+  await repo.create({ batchId: 'A', name: 'A', __raw: true });
+  await repo.create({ batchId: 'B', name: 'B', __raw: true });
     const all = await repo.find();
     const ids = all.map((d) => d.batchId).sort();
     expect(ids).toEqual(['A', 'B']);

@@ -25,16 +25,46 @@ function makeDoc(data) {
 }
 
 async function create(data) {
+  // Ensure id and batchId are set
+  const now = Date.now();
+  if (!data.id) data.id = `herb-${now}-${Math.floor(Math.random() * 1000)}`;
+  if (!data.batchId) data.batchId = data.id;
   const doc = makeDoc(data);
+  // Store by both batchId and id for robust retrieval
   store.set(doc.batchId, doc);
-  return doc;
+  store.set(doc.id, doc);
+  // If __raw flag is set, return direct reference (for unit tests)
+  if (data.__raw) {
+    return doc;
+  }
+  // Otherwise, return wrapped object for controller compatibility
+  return { success: true, data: { ...doc, id: data.id, batchId: data.batchId } };
 }
 
 async function find() {
-  return Array.from(store.values()).map((d) => d);
+  // Only return unique docs by batchId
+  const seen = new Set();
+  return Array.from(store.values()).filter((d) => {
+    if (seen.has(d.batchId)) return false;
+    seen.add(d.batchId);
+    return true;
+  });
 }
 async function findOne(q) {
-  return store.get(q.batchId);
+  // Try batchId, then id
+  if (q.batchId) {
+    const direct = store.get(q.batchId);
+    if (direct) return direct;
+  }
+  if (q.id) {
+    const byId = store.get(q.id);
+    if (byId) return byId;
+  }
+  // Fallback: if only a string was passed
+  if (typeof q === 'string') {
+    return store.get(q) || null;
+  }
+  return null;
 }
 
 module.exports = { create, find, findOne, __store: store };

@@ -4,29 +4,39 @@
   "private": true,
   "scripts": {
     "dev": "nodemon src/index.js",
-    "start": "node src/index.js",
-    "test": "jest",
+    "start": "node scripts/verify-deps.js && node src/index.js",
+    "test": "jest --config=package.json",
+    "test:unit": "jest --config=package.json tests/unit",
+    "test:integration": "jest --config=package.json tests/integration",
+    "test:e2e": "cross-env RUN_E2E_TESTS=true jest --config=package.json tests/e2e",
+    "test:watch": "jest --config=package.json --watch",
+    "test:coverage": "jest --config=package.json --coverage",
     "lint": "eslint src/",
     "format": "prettier --write src/",
-    "format:check": "prettier --check src/"
+    "format:check": "prettier --check src/",
+    "verify:deps": "node scripts/verify-deps.js",
+    "smoke": "node scripts/smoke.js"
   },
   "dependencies": {
     "axios": "^1.5.0",
+    "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.0.0",
     "ethers": "^6.9.0",
     "express": "^4.18.2",
-    "express-rate-limit": "^7.0.0",
+    "express-rate-limit": "^7.5.1",
     "helmet": "^7.0.0",
     "ipfs-http-client": "^60.0.1",
+    "jsonwebtoken": "^9.0.2",
     "mongoose": "^7.3.1",
     "multer": "^1.4.5-lts.1",
     "pino": "^8.15.0",
     "qrcode": "^1.5.1",
-    "jsonwebtoken": "^9.0.2",
+    "web3": "^1.9.0",
     "zod": "^3.22.0"
   },
   "devDependencies": {
+    "cross-env": "^7.0.3",
     "eslint": "^8.50.0",
     "eslint-config-prettier": "^9.1.2",
     "eslint-plugin-react": "^7.37.5",
@@ -34,13 +44,35 @@
     "jest": "^29.7.0",
     "nodemon": "^3.0.1",
     "prettier": "^3.0.0",
-    "supertest": "^6.3.3"
+    "supertest": "^6.3.4"
   },
+  "optionalDependencies": {},
   "jest": {
     "testEnvironment": "node",
     "verbose": true,
     "globalSetup": "<rootDir>/tests/setup.js",
-    "globalTeardown": "<rootDir>/tests/teardown.js"
+    "globalTeardown": "<rootDir>/tests/teardown.js",
+    "testMatch": [
+      "**/tests/**/*.test.js",
+      "**/tests/**/*.spec.js"
+    ],
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "/dist/",
+      "/uploads/"
+    ],
+    "collectCoverageFrom": [
+      "src/**/*.js",
+      "!src/seed/**",
+      "!**/node_modules/**"
+    ],
+    "coverageReporters": [
+      "text",
+      "lcov",
+      "html"
+    ],
+    "maxWorkers": "50%",
+    "clearMocks": true,
+    "testTimeout": 10000
   }
 }
-

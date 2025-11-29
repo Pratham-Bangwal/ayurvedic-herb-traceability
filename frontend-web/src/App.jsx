@@ -118,7 +118,18 @@ export default function App() {
         : undefined;
       const response = await fetch(`${baseUrl}/api/herbs`, { headers });
       const data = await response.json();
-      setHerbs(data.data || []);
+      console.log('Herbs data received:', data);
+      // Check the exact structure of the response and get the herbs array
+      if (data && data.data && Array.isArray(data.data.items)) {
+        setHerbs(data.data.items);
+      } else if (data && Array.isArray(data.data)) {
+        setHerbs(data.data);
+      } else if (Array.isArray(data)) {
+        setHerbs(data);
+      } else {
+        console.error('Unexpected herbs data format:', data);
+        setHerbs([]);
+      }
     } catch (error) {
       console.error('Failed to load herbs:', error);
       setHerbs([]);
@@ -127,7 +138,8 @@ export default function App() {
     }
   }
 
-  const filteredHerbs = herbs.filter((herb) => {
+  // Ensure herbs is always treated as an array
+  const filteredHerbs = Array.isArray(herbs) ? herbs.filter((herb) => {
     if (!searchTerm) return true;
     const search = searchTerm.toLowerCase();
     return (
@@ -137,16 +149,19 @@ export default function App() {
       herb.farmerName?.toLowerCase().includes(search) ||
       herb.farmLocation?.toLowerCase().includes(search)
     );
-  });
+  }) : [];
 
+  // Make sure herbs is always an array before calculations
+  const herbsArray = Array.isArray(herbs) ? herbs : [];
+  
   const analytics = {
-    totalBatches: herbs.length,
-    organicBatches: herbs.filter((h) => h.organicCertified).length,
-    totalQuantity: herbs.reduce((sum, h) => sum + (parseFloat(h.quantity) || 0), 0),
-    uniqueFarmers: new Set(herbs.map((h) => h.farmerName).filter(Boolean)).size,
-    uniqueLocations: new Set(herbs.map((h) => h.farmLocation).filter(Boolean)).size,
-    recentBatches: herbs.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 3),
-    herbTypes: herbs.reduce((acc, h) => {
+    totalBatches: herbsArray.length,
+    organicBatches: herbsArray.filter((h) => h.organicCertified).length,
+    totalQuantity: herbsArray.reduce((sum, h) => sum + (parseFloat(h.quantity) || 0), 0),
+    uniqueFarmers: new Set(herbsArray.map((h) => h.farmerName).filter(Boolean)).size,
+    uniqueLocations: new Set(herbsArray.map((h) => h.farmLocation).filter(Boolean)).size,
+    recentBatches: [...herbsArray].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 3),
+    herbTypes: herbsArray.reduce((acc, h) => {
       const name = h.herbName || h.name || 'Unknown';
       acc[name] = (acc[name] || 0) + 1;
       return acc;
@@ -194,10 +209,17 @@ export default function App() {
 
       const endpoint = form.photo ? '/api/herbs/upload' : '/api/herbs';
       const requestOptions = form.photo
-        ? { method: 'POST', body: formData }
+        ? { 
+            method: 'POST', 
+            body: formData,
+            headers: authToken ? { Authorization: `Bearer ${authToken}` } : {}
+          }
         : {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+              'Content-Type': 'application/json',
+              ...(authToken ? { Authorization: `Bearer ${authToken}` } : {})
+            },
             body: JSON.stringify({
               batchId: form.batchId,
               name: form.herbName,
@@ -468,7 +490,7 @@ export default function App() {
 
             <button onClick={() => setShowAdmin(!showAdmin)} className="modern-button danger">
               <span>🛠️</span>
-              {showAdmin ? 'Hide' : 'Show'} Admin
+              {showAdmin ? 'Hide' : 'Show'} Admin Login
             </button>
           </div>
 
